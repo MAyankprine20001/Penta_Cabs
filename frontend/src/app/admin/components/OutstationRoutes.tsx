@@ -398,7 +398,7 @@ const OutstationRoutes = forwardRef<OutstationRoutesRef, OutstationRoutesProps>(
 
         {/* Edit Modal */}
         {showEditModal && selectedRoute && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-[#00000080] bg-opacity-50 flex items-center justify-center z-50">
             <div
               className="max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto rounded-2xl p-6"
               style={{
@@ -559,7 +559,7 @@ const OutstationRoutes = forwardRef<OutstationRoutesRef, OutstationRoutesProps>(
 
         {/* Delete Confirmation Modal */}
         {showDeleteModal && selectedRoute && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-[#00000080] bg-opacity-50 flex items-center justify-center z-50">
             <div
               className="max-w-md w-full mx-4 rounded-2xl p-6"
               style={{
