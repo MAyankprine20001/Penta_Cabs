@@ -41,6 +41,47 @@ const localRideSchema = new mongoose.Schema({
 
 const LocalRideEntry = mongoose.model('LocalRideEntry', localRideSchema);
 
+// New Booking Request schema for all types of bookings
+const bookingRequestSchema = new mongoose.Schema({
+    serviceType: { type: String, enum: ['AIRPORT', 'LOCAL', 'OUTSTATION'], required: true },
+    traveller: {
+        name: { type: String, required: true },
+        email: { type: String, required: true },
+        mobile: { type: String, required: true },
+        pickup: String,
+        drop: String,
+        pickupAddress: String,
+        dropAddress: String,
+        remark: String,
+        gst: String,
+        whatsapp: { type: Boolean, default: false },
+        gstDetails: { type: Boolean, default: false }
+    },
+    route: String,
+    cab: {
+        type: String,
+        price: Number,
+        _id: String
+    },
+    date: String,
+    time: String,
+    estimatedDistance: String,
+    paymentMethod: { type: String, default: '0' }, // 0 for cash, other for advance
+    status: { 
+        type: String, 
+        enum: ['pending', 'accepted', 'declined', 'driver_sent'], 
+        default: 'pending' 
+    },
+    driverDetails: {
+        name: String,
+        whatsappNumber: String,
+        vehicleNumber: String
+    },
+    adminNotes: String
+}, { timestamps: true });
+
+const BookingRequest = mongoose.model('BookingRequest', bookingRequestSchema);
+
 // Add this to your exports
-module.exports = { AirportEntry, OutstationEntry, LocalRideEntry };
+module.exports = { AirportEntry, OutstationEntry, LocalRideEntry, BookingRequest };
 

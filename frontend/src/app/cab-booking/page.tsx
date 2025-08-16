@@ -7,6 +7,8 @@ import {
   sendLocalEmail,
   sendIntercityEmail,
   prepareEmailData,
+  createBookingRequest,
+  prepareBookingRequestData,
 } from "@/services/emailService";
 
 // Theme configuration (matching cab-lists)
@@ -350,8 +352,32 @@ const CabBookingContent = () => {
   const handlePayment = async () => {
     setIsProcessingEmail(true);
     try {
-      // Send email based on service type before proceeding with payment
+      // Create booking request first
       if (bookingData.serviceType) {
+        const bookingRequestData = prepareBookingRequestData(
+          bookingData,
+          {
+            name: bookingData.name || "",
+            mobile: bookingData.mobile || "",
+            email: bookingData.email || "",
+            pickup: bookingData.pickup || "",
+            drop: bookingData.drop || "",
+            remark: bookingData.remark || "",
+            whatsapp: bookingData.whatsapp === "true",
+            gstDetails: bookingData.gstDetails === "true",
+            gst: bookingData.gst || "",
+          },
+          bookingData.serviceType as "AIRPORT" | "LOCAL" | "OUTSTATION",
+          selectedPayment
+        );
+
+        console.log("Creating booking request:", bookingRequestData);
+
+        // Create the booking request
+        const bookingResponse = await createBookingRequest(bookingRequestData);
+        console.log("Booking request created:", bookingResponse);
+
+        // Send email based on service type
         const emailData = prepareEmailData(
           bookingData,
           {
@@ -395,19 +421,23 @@ const CabBookingContent = () => {
 
       // Proceed with payment logic
       if (selectedPayment === "0") {
-        // For cash payment, just show success message
-        alert("Booking confirmed! You can pay cash to the driver.");
-        console.log("Cash payment selected");
+        // For cash payment, show success message
+        alert(
+          "Booking request submitted successfully! Our team will review and confirm your booking. You can pay cash to the driver upon confirmation."
+        );
+        console.log("Cash payment selected - booking request created");
       } else {
         // For advance payments, open payment gateway
         setShowPaymentModal(true);
       }
     } catch (error) {
-      console.error("Error sending email:", error);
-      // Still proceed with payment even if email fails
+      console.error("Error creating booking request or sending email:", error);
+      // Still proceed with payment even if booking request fails
       if (selectedPayment === "0") {
-        alert("Booking confirmed! You can pay cash to the driver.");
-        console.log("Cash payment selected");
+        alert(
+          "There was an issue with the booking request. Please try again or contact support."
+        );
+        console.log("Error occurred during booking request creation");
       } else {
         setShowPaymentModal(true);
       }

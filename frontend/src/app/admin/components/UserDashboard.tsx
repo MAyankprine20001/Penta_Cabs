@@ -2,18 +2,47 @@
 
 import React, { useState, useEffect } from "react";
 import { theme } from "@/styles/theme";
+import {
+  getBookingRequests,
+  updateBookingStatus,
+  addDriverDetails,
+  sendDeclineEmail,
+} from "@/services/emailService";
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  totalBookings: number;
-  totalCharge: number;
-  bookingDate: string;
-  joinDate: string;
-  paymentMethod: "full" | "50%" | "cod";
-  bookingStatus?: "pending" | "accepted" | "declined" | "driver_sent";
+interface BookingRequest {
+  _id: string;
+  serviceType: "AIRPORT" | "LOCAL" | "OUTSTATION";
+  traveller: {
+    name: string;
+    email: string;
+    mobile: string;
+    pickup?: string;
+    drop?: string;
+    pickupAddress?: string;
+    dropAddress?: string;
+    remark?: string;
+    gst?: string;
+    whatsapp: boolean;
+    gstDetails: boolean;
+  };
+  route: string;
+  cab: {
+    type: string;
+    price: number;
+    _id: string;
+  };
+  date?: string;
+  time?: string;
+  estimatedDistance?: string;
+  paymentMethod: string;
+  status: "pending" | "accepted" | "declined" | "driver_sent";
+  driverDetails?: {
+    name: string;
+    whatsappNumber: string;
+    vehicleNumber: string;
+  };
+  adminNotes?: string;
+  createdAt: string;
 }
 
 interface DriverDetails {
@@ -22,215 +51,221 @@ interface DriverDetails {
   vehicleNumber: string;
 }
 
-// Mock data for demonstration
-const mockUsers: User[] = [
-  {
-    id: "1",
-    name: "John Doe",
-    email: "john.doe@example.com",
-    phone: "+91 98765 43210",
-    totalBookings: 15,
-    totalCharge: 25000,
-    bookingDate: "2024-01-15",
-    joinDate: "2023-06-10",
-    paymentMethod: "full",
-    bookingStatus: "pending",
-  },
-  {
-    id: "2",
-    name: "Jane Smith",
-    email: "jane.smith@example.com",
-    phone: "+91 87654 32109",
-    totalBookings: 8,
-    totalCharge: 12000,
-    bookingDate: "2024-01-10",
-    joinDate: "2023-08-20",
-    paymentMethod: "50%",
-    bookingStatus: "accepted",
-  },
-  {
-    id: "3",
-    name: "Mike Johnson",
-    email: "mike.johnson@example.com",
-    phone: "+91 76543 21098",
-    totalBookings: 3,
-    totalCharge: 5000,
-    bookingDate: "2023-12-05",
-    joinDate: "2023-09-15",
-    paymentMethod: "cod",
-    bookingStatus: "driver_sent",
-  },
-  {
-    id: "4",
-    name: "Sarah Wilson",
-    email: "sarah.wilson@example.com",
-    phone: "+91 65432 10987",
-    totalBookings: 0,
-    totalCharge: 2330,
-    bookingDate: "-",
-    joinDate: "2024-01-20",
-    paymentMethod: "full",
-    bookingStatus: "declined",
-  },
-];
-
 export default function UserDashboard() {
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [paymentFilter, setPaymentFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<keyof User>("name");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
+    null
+  );
   const [driverDetails, setDriverDetails] = useState<DriverDetails>({
     name: "",
     whatsappNumber: "",
     vehicleNumber: "",
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.phone.includes(searchTerm);
-    const matchesPayment = paymentFilter === "all" || user.paymentMethod === paymentFilter;
-    return matchesSearch && matchesPayment;
+  // Fetch booking requests on component mount
+  useEffect(() => {
+    fetchBookingRequests();
+  }, [currentPage]);
+
+  const fetchBookingRequests = async () => {
+    try {
+      setIsLoading(true);
+      const response = await getBookingRequests(currentPage, 10);
+      setBookingRequests(response.bookingRequests);
+      setTotalPages(response.totalPages);
+    } catch (error) {
+      console.error("Error fetching booking requests:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredRequests = bookingRequests.filter((request) => {
+    const matchesSearch =
+      request.traveller.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      request.traveller.email
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      request.traveller.mobile.includes(searchTerm) ||
+      request.route.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      statusFilter === "all" || request.status === statusFilter;
+    return matchesSearch && matchesStatus;
   });
 
-  const sortedUsers = [...filteredUsers].sort((a, b) => {
-    const aValue = a[sortBy];
-    const bValue = b[sortBy];
-    
-    if (typeof aValue === "string" && typeof bValue === "string") {
-      return sortOrder === "asc" 
-        ? aValue.localeCompare(bValue)
-        : bValue.localeCompare(aValue);
+  const sortedRequests = [...filteredRequests].sort((a, b) => {
+    let aValue: string | number | Date;
+    let bValue: string | number | Date;
+
+    // Handle nested properties
+    if (sortBy === "traveller.name") {
+      aValue = a.traveller.name;
+      bValue = b.traveller.name;
+    } else if (sortBy === "cab.price") {
+      aValue = a.cab.price;
+      bValue = b.cab.price;
+    } else {
+      aValue = a[sortBy as keyof BookingRequest] as string | number | Date;
+      bValue = b[sortBy as keyof BookingRequest] as string | number | Date;
     }
-    
-    if (typeof aValue === "number" && typeof bValue === "number") {
-      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
-    }
-    
+
+    if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
+    if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
     return 0;
   });
 
-  const handleSort = (column: keyof User) => {
-    if (sortBy === column) {
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
-      setSortBy(column);
+      setSortBy(field);
       setSortOrder("asc");
     }
   };
 
-  const getPaymentBadge = (paymentMethod: string) => {
-    const paymentConfig = {
-      full: { color: "bg-green-500", text: "Full" },
-      "50%": { color: "bg-blue-500", text: "50%" },
-      cod: { color: "bg-orange-500", text: "COD" },
+  const handleAcceptBooking = async (bookingId: string) => {
+    try {
+      await updateBookingStatus(bookingId, "accepted");
+      await fetchBookingRequests(); // Refresh the list
+    } catch (error) {
+      console.error("Error accepting booking:", error);
+    }
+  };
+
+  const handleDeclineBooking = async (bookingId: string) => {
+    try {
+      const request = bookingRequests.find((r) => r._id === bookingId);
+      if (request) {
+        await updateBookingStatus(bookingId, "declined");
+        // Send decline email
+        await sendDeclineEmail(
+          request.traveller.email,
+          request.route,
+          "Service temporarily unavailable"
+        );
+        await fetchBookingRequests(); // Refresh the list
+      }
+    } catch (error) {
+      console.error("Error declining booking:", error);
+    }
+  };
+
+  const handleSendDriverDetails = (bookingId: string) => {
+    setSelectedBookingId(bookingId);
+    setIsDriverModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsDriverModalOpen(false);
+    setSelectedBookingId(null);
+    setDriverDetails({
+      name: "",
+      whatsappNumber: "",
+      vehicleNumber: "",
+    });
+  };
+
+  const handleSubmitDriverDetails = async () => {
+    if (!selectedBookingId) return;
+
+    try {
+      await addDriverDetails(selectedBookingId, driverDetails);
+      await fetchBookingRequests(); // Refresh the list
+      handleCloseModal();
+    } catch (error) {
+      console.error("Error adding driver details:", error);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      pending: { color: "bg-yellow-600", text: "Pending" },
+      accepted: { color: "bg-blue-600", text: "Accepted" },
+      declined: { color: "bg-red-600", text: "Declined" },
+      driver_sent: { color: "bg-green-600", text: "Driver Sent" },
     };
-    
-    const config = paymentConfig[paymentMethod as keyof typeof paymentConfig];
+
+    const config =
+      statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+
     return (
-      <span className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${config.color}`}>
+      <span
+        className={`px-2 py-1 rounded-full text-xs font-semibold text-white ${config.color}`}
+      >
         {config.text}
       </span>
     );
   };
 
-  const handleAcceptBooking = (userId: string) => {
-    setUsers(prevUsers => 
-      prevUsers.map(user => 
-        user.id === userId 
-          ? { ...user, bookingStatus: "accepted" }
-          : user
-      )
-    );
-  };
-
-  const handleDeclineBooking = (userId: string) => {
-    setUsers(prevUsers => 
-      prevUsers.map(user => 
-        user.id === userId 
-          ? { ...user, bookingStatus: "declined" }
-          : user
-      )
-    );
-  };
-
-  const handleSendDriverDetails = (userId: string) => {
-    setSelectedUserId(userId);
-    setIsDriverModalOpen(true);
-  };
-
-  const handleSubmitDriverDetails = () => {
-    if (driverDetails.name && driverDetails.whatsappNumber && driverDetails.vehicleNumber) {
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user.id === selectedUserId 
-            ? { ...user, bookingStatus: "driver_sent" }
-            : user
-        )
+  const getPaymentBadge = (paymentMethod: string) => {
+    if (paymentMethod === "0") {
+      return (
+        <span className="px-2 py-1 rounded-full text-xs font-semibold text-white bg-green-600">
+          Cash on Delivery
+        </span>
       );
-      setIsDriverModalOpen(false);
-      setDriverDetails({ name: "", whatsappNumber: "", vehicleNumber: "" });
-      setSelectedUserId(null);
     }
+    return (
+      <span className="px-2 py-1 rounded-full text-xs font-semibold text-white bg-blue-600">
+        Advance Payment
+      </span>
+    );
   };
 
-  const handleCloseModal = () => {
-    setIsDriverModalOpen(false);
-    setDriverDetails({ name: "", whatsappNumber: "", vehicleNumber: "" });
-    setSelectedUserId(null);
-  };
-
-  const renderActionButtons = (user: User) => {
-    const status = user.bookingStatus || "pending";
-
-    switch (status) {
+  const renderActionButtons = (request: BookingRequest) => {
+    switch (request.status) {
       case "pending":
         return (
           <div className="flex space-x-2">
-            <button 
-              onClick={() => handleAcceptBooking(user.id)}
+            <button
+              onClick={() => handleAcceptBooking(request._id)}
               className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors"
             >
               Accept
             </button>
-            <button 
-              onClick={() => handleDeclineBooking(user.id)}
+            <button
+              onClick={() => handleDeclineBooking(request._id)}
               className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
             >
               Decline
             </button>
           </div>
         );
-      
+
       case "accepted":
         return (
           <div className="flex space-x-2">
-            <button 
-              onClick={() => handleSendDriverDetails(user.id)}
+            <button
+              onClick={() => handleSendDriverDetails(request._id)}
               className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
             >
               Send Driver Details
             </button>
           </div>
         );
-      
+
       case "driver_sent":
         return (
           <div className="text-green-500 text-sm font-semibold">
             Driver details already sent
           </div>
         );
-      
+
       case "declined":
         return (
           <div className="text-red-500 text-sm font-semibold">
             Booking declined
           </div>
         );
-      
+
       default:
         return null;
     }
@@ -241,24 +276,28 @@ export default function UserDashboard() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
         <div>
-          <h2 
+          <h2
             className="text-xl sm:text-2xl font-bold"
             style={{
               color: theme.colors.accent.gold,
               fontFamily: theme.typography.fontFamily.sans.join(", "),
             }}
           >
-            User Management
+            Booking Management
           </h2>
           <p className="text-gray-400 mt-1 text-sm sm:text-base">
-            Manage user accounts and view booking statistics
+            Manage booking requests and assign drivers
           </p>
         </div>
-        
+
         <div className="flex items-center space-x-3 sm:space-x-4">
           <div className="text-right">
-            <div className="text-xl sm:text-2xl font-bold text-white">{users.length}</div>
-            <div className="text-xs sm:text-sm text-gray-400">Total Users</div>
+            <div className="text-xl sm:text-2xl font-bold text-white">
+              {bookingRequests.length}
+            </div>
+            <div className="text-xs sm:text-sm text-gray-400">
+              Total Bookings
+            </div>
           </div>
         </div>
       </div>
@@ -268,122 +307,193 @@ export default function UserDashboard() {
         <div className="flex-1">
           <input
             type="text"
-            placeholder="Search users by name, email, or phone..."
+            placeholder="Search bookings by name, email, phone, or route..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-sm sm:text-base"
           />
         </div>
         <select
-          value={paymentFilter}
-          onChange={(e) => setPaymentFilter(e.target.value)}
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
           className="px-3 sm:px-4 py-2 sm:py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-sm sm:text-base"
         >
-          <option value="all">All Payment</option>
-          <option value="full">Full Payment</option>
-          <option value="50%">50% Payment</option>
-          <option value="cod">COD</option>
+          <option value="all">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="accepted">Accepted</option>
+          <option value="declined">Declined</option>
+          <option value="driver_sent">Driver Sent</option>
         </select>
       </div>
 
-      {/* Table */}
-      <div 
-        className="rounded-2xl border border-gray-700 overflow-hidden"
-        style={{
-          backgroundColor: theme.colors.background.card,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-        }}
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-full">
-            <thead>
-              <tr className="bg-gradient-to-r from-gray-800 to-gray-900 border-b border-gray-700">
-                <th className="px-3 sm:px-6 py-3 sm:py-4 text-left">
-                  <button
-                    onClick={() => handleSort("name")}
-                    className="flex items-center space-x-1 sm:space-x-2 text-white font-semibold hover:text-yellow-500 transition-colors text-xs sm:text-sm"
-                  >
-                    <span>Name</span>
-                    {sortBy === "name" && (
-                      <span>{sortOrder === "asc" ? "↑" : "↓"}</span>
-                    )}
-                  </button>
-                </th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm">Contact</th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 text-left">
-                  <button
-                    onClick={() => handleSort("totalCharge")}
-                    className="flex items-center space-x-1 sm:space-x-2 text-white font-semibold hover:text-yellow-500 transition-colors text-xs sm:text-sm"
-                  >
-                    <span>Total Charge</span>
-                    {sortBy === "totalCharge" && (
-                      <span>{sortOrder === "asc" ? "↑" : "↓"}</span>
-                    )}
-                  </button>
-                </th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm">Payment Method</th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm">Booking Date</th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedUsers.map((user, index) => (
-                <tr 
-                  key={user.id}
-                  className={`border-b border-gray-700 hover:bg-gray-700 transition-colors ${
-                    index % 2 === 0 ? 'bg-gray-800' : 'bg-gray-900'
-                  }`}
-                >
-                  <td className="px-3 sm:px-6 py-3 sm:py-4">
-                    <div>
-                      <div className="font-semibold text-white text-xs sm:text-sm">{user.name}</div>
-                      <div className="text-xs text-gray-400">ID: {user.id}</div>
-                    </div>
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4">
-                    <div>
-                      <div className="text-white text-xs sm:text-sm truncate">{user.email}</div>
-                      <div className="text-xs text-gray-400 truncate">{user.phone}</div>
-                    </div>
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-white font-semibold text-xs sm:text-sm">
-                    ₹{user.totalCharge.toLocaleString()}
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4">
-                    {getPaymentBadge(user.paymentMethod)}
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-gray-300 text-xs sm:text-sm">
-                    {user.bookingDate === "-" ? "-" : new Date(user.bookingDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-3 sm:px-6 py-3 sm:py-4">
-                    {renderActionButtons(user)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Loading State */}
+      {isLoading && (
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto"></div>
+          <p className="text-gray-400 mt-2">Loading bookings...</p>
         </div>
-        
-        {sortedUsers.length === 0 && (
-          <div className="p-6 sm:p-8 text-center">
-            <div className="text-gray-400 text-base sm:text-lg">No users found</div>
-            <div className="text-gray-500 text-sm mt-2">Try adjusting your search or filters</div>
+      )}
+
+      {/* Table */}
+      {!isLoading && (
+        <div
+          className="rounded-2xl border border-gray-700 overflow-hidden"
+          style={{
+            backgroundColor: theme.colors.background.card,
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+          }}
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-full">
+              <thead>
+                <tr className="bg-gradient-to-r from-gray-800 to-gray-900 border-b border-gray-700">
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left">
+                    <button
+                      onClick={() => handleSort("traveller.name")}
+                      className="flex items-center space-x-1 sm:space-x-2 text-white font-semibold hover:text-yellow-500 transition-colors text-xs sm:text-sm"
+                    >
+                      <span>Customer</span>
+                      {sortBy === "traveller.name" && (
+                        <span>{sortOrder === "asc" ? "↑" : "↓"}</span>
+                      )}
+                    </button>
+                  </th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm">
+                    Service
+                  </th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm">
+                    Route
+                  </th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left">
+                    <button
+                      onClick={() => handleSort("cab.price")}
+                      className="flex items-center space-x-1 sm:space-x-2 text-white font-semibold hover:text-yellow-500 transition-colors text-xs sm:text-sm"
+                    >
+                      <span>Price</span>
+                      {sortBy === "cab.price" && (
+                        <span>{sortOrder === "asc" ? "↑" : "↓"}</span>
+                      )}
+                    </button>
+                  </th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm">
+                    Payment
+                  </th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm">
+                    Status
+                  </th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-white font-semibold text-xs sm:text-sm">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedRequests.map((request, index) => (
+                  <tr
+                    key={request._id}
+                    className={`border-b border-gray-700 hover:bg-gray-700 transition-colors ${
+                      index % 2 === 0 ? "bg-gray-800" : "bg-gray-900"
+                    }`}
+                  >
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      <div>
+                        <div className="font-semibold text-white text-xs sm:text-sm">
+                          {request.traveller.name || "N/A"}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {request.traveller.email || "N/A"}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {request.traveller.mobile || "N/A"}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      <div className="text-white text-xs sm:text-sm">
+                        {request.serviceType || "N/A"}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {request.cab.type || "N/A"}
+                      </div>
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      <div className="text-white text-xs sm:text-sm">
+                        {request.route || "N/A"}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {request.date || "N/A"} {request.time || "N/A"}
+                      </div>
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-white font-semibold text-xs sm:text-sm">
+                      ₹{(request.cab.price || 0).toLocaleString()}
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      {getPaymentBadge(request.paymentMethod || "0")}
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      {getStatusBadge(request.status || "pending")}
+                    </td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      {renderActionButtons(request)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+
+          {sortedRequests.length === 0 && (
+            <div className="p-6 sm:p-8 text-center">
+              <div className="text-gray-400 text-base sm:text-lg">
+                No bookings found
+              </div>
+              <div className="text-gray-500 text-sm mt-2">
+                Try adjusting your search or filters
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center space-x-2">
+          <button
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600"
+          >
+            Previous
+          </button>
+          <span className="px-3 py-2 text-white">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() =>
+              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+            }
+            disabled={currentPage === totalPages}
+            className="px-3 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600"
+          >
+            Next
+          </button>
+        </div>
+      )}
 
       {/* Driver Details Modal */}
       {isDriverModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <div 
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+        >
+          <div
             className="bg-gray-800 rounded-2xl p-4 sm:p-6 w-full max-w-md mx-auto"
             style={{
               border: `1px solid ${theme.colors.border.primary}`,
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
             }}
           >
             <div className="flex justify-between items-center mb-4 sm:mb-6">
-              <h3 
+              <h3
                 className="text-lg sm:text-xl font-bold"
                 style={{
                   color: theme.colors.accent.gold,
@@ -409,8 +519,8 @@ export default function UserDashboard() {
                   type="text"
                   value={driverDetails.name}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/[^a-zA-Z\s]/g, '');
-                    setDriverDetails(prev => ({ ...prev, name: value }));
+                    const value = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                    setDriverDetails((prev) => ({ ...prev, name: value }));
                   }}
                   className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-sm sm:text-base"
                   placeholder="Enter driver name (letters only)"
@@ -426,8 +536,11 @@ export default function UserDashboard() {
                   type="tel"
                   value={driverDetails.whatsappNumber}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9+\-\s]/g, '');
-                    setDriverDetails(prev => ({ ...prev, whatsappNumber: value }));
+                    const value = e.target.value.replace(/[0-9+\-\s]/g, "");
+                    setDriverDetails((prev) => ({
+                      ...prev,
+                      whatsappNumber: value,
+                    }));
                   }}
                   className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-sm sm:text-base"
                   placeholder="Enter WhatsApp number (e.g., +91 98765 43210)"
@@ -444,8 +557,13 @@ export default function UserDashboard() {
                   type="text"
                   value={driverDetails.vehicleNumber}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/[^A-Z0-9\s\-]/g, '').toUpperCase();
-                    setDriverDetails(prev => ({ ...prev, vehicleNumber: value }));
+                    const value = e.target.value
+                      .replace(/[^A-Z0-9\s\-]/g, "")
+                      .toUpperCase();
+                    setDriverDetails((prev) => ({
+                      ...prev,
+                      vehicleNumber: value,
+                    }));
                   }}
                   className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-sm sm:text-base"
                   placeholder="Enter vehicle number (e.g., GJ-01-AB-1234)"
@@ -473,4 +591,4 @@ export default function UserDashboard() {
       )}
     </div>
   );
-} 
+}
