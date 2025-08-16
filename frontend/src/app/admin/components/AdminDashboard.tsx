@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useRef } from "react";
 import { theme } from "@/styles/theme";
 import OutstationForm from "./OutstationForm";
 import OutstationRoutes from "./OutstationRoutes";
@@ -14,6 +14,15 @@ interface AdminDashboardProps {
 }
 
 export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
+  const outstationRoutesRef = useRef<{ fetchRoutes: () => void }>(null);
+
+  const handleRouteAdded = () => {
+    // Refresh the routes list when a new route is added
+    if (outstationRoutesRef.current) {
+      outstationRoutesRef.current.fetchRoutes();
+    }
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case "USERS":
@@ -23,8 +32,8 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
       case "OUTSTATION":
         return (
           <div className="space-y-8">
-            <OutstationRoutes />
-            <OutstationForm />
+            <OutstationRoutes ref={outstationRoutesRef} />
+            <OutstationForm onRouteAdded={handleRouteAdded} />
           </div>
         );
       case "LOCAL":

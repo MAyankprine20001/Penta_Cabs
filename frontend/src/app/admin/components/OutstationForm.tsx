@@ -22,7 +22,11 @@ interface OutstationFormData {
   twoWayCars: Car[];
 }
 
-export default function OutstationForm() {
+interface OutstationFormProps {
+  onRouteAdded?: () => void;
+}
+
+export default function OutstationForm({ onRouteAdded }: OutstationFormProps) {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState<OutstationFormData>({
     city1: "",
@@ -93,7 +97,7 @@ export default function OutstationForm() {
       await api.post("/add-outstation", oneWayEntry);
       await api.post("/add-outstation", twoWayEntry);
 
-      setMessage("Outstation bookings saved successfully!");
+      setMessage("Outstation routes added successfully!");
 
       // Reset form
       setForm({
@@ -120,9 +124,13 @@ export default function OutstationForm() {
       setTimeout(() => {
         setShowModal(false);
         setMessage("");
+        // Notify parent component to refresh the list
+        if (onRouteAdded) {
+          onRouteAdded();
+        }
       }, 2000);
     } catch (error: any) {
-      setMessage("Error saving booking");
+      setMessage("Error saving routes");
       console.error("Error submitting form:", error);
     } finally {
       setIsSubmitting(false);
@@ -190,7 +198,7 @@ export default function OutstationForm() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div 
+          <div
             className="max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto rounded-2xl"
             style={{
               backgroundColor: theme.colors.background.card,
@@ -236,7 +244,9 @@ export default function OutstationForm() {
                       type="text"
                       placeholder="From City (city1)"
                       value={form.city1}
-                      onChange={(e) => setForm({ ...form, city1: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, city1: e.target.value })
+                      }
                     />
                   </div>
 
@@ -254,7 +264,9 @@ export default function OutstationForm() {
                       type="text"
                       placeholder="To City (city2)"
                       value={form.city2}
-                      onChange={(e) => setForm({ ...form, city2: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, city2: e.target.value })
+                      }
                     />
                   </div>
                 </div>
@@ -274,7 +286,9 @@ export default function OutstationForm() {
                     <ThemedInput
                       type="datetime-local"
                       value={form.dateTime}
-                      onChange={(e) => setForm({ ...form, dateTime: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, dateTime: e.target.value })
+                      }
                     />
                   </div>
 
@@ -292,7 +306,9 @@ export default function OutstationForm() {
                       type="number"
                       placeholder="Distance (in km)"
                       value={form.distance}
-                      onChange={(e) => setForm({ ...form, distance: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, distance: e.target.value })
+                      }
                     />
                   </div>
                 </div>
@@ -323,7 +339,12 @@ export default function OutstationForm() {
                             type="checkbox"
                             checked={car.available}
                             onChange={() =>
-                              handleCarChange("oneWayCars", index, "available", null)
+                              handleCarChange(
+                                "oneWayCars",
+                                index,
+                                "available",
+                                null
+                              )
                             }
                             className="w-4 h-4"
                             style={{
@@ -334,7 +355,8 @@ export default function OutstationForm() {
                             className="font-medium"
                             style={{
                               color: theme.colors.text.primary,
-                              fontFamily: theme.typography.fontFamily.sans.join(", "),
+                              fontFamily:
+                                theme.typography.fontFamily.sans.join(", "),
                             }}
                           >
                             {car.type.toUpperCase()}
@@ -384,7 +406,12 @@ export default function OutstationForm() {
                             type="checkbox"
                             checked={car.available}
                             onChange={() =>
-                              handleCarChange("twoWayCars", index, "available", null)
+                              handleCarChange(
+                                "twoWayCars",
+                                index,
+                                "available",
+                                null
+                              )
                             }
                             className="w-4 h-4"
                             style={{
@@ -395,7 +422,8 @@ export default function OutstationForm() {
                             className="font-medium"
                             style={{
                               color: theme.colors.text.primary,
-                              fontFamily: theme.typography.fontFamily.sans.join(", "),
+                              fontFamily:
+                                theme.typography.fontFamily.sans.join(", "),
                             }}
                           >
                             {car.type.toUpperCase()}
