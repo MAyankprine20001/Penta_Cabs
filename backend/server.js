@@ -239,6 +239,89 @@ app.delete('/api/local-services/:id', async (req, res) => {
   }
 });
 
+// Get all airport services with pagination
+app.get('/api/airport-services', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    
+    let query = {};
+    if (req.query.search) {
+      query = {
+        $or: [
+          { airportCity: { $regex: req.query.search, $options: 'i' } },
+          { otherLocation: { $regex: req.query.search, $options: 'i' } },
+          { serviceType: { $regex: req.query.search, $options: 'i' } }
+        ]
+      };
+    }
+    
+    const services = await AirportEntry.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    
+    const total = await AirportEntry.countDocuments(query);
+    
+    res.json({
+      services,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalServices: total,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get single airport service by ID
+app.get('/api/airport-services/:id', async (req, res) => {
+  try {
+    const service = await AirportEntry.findById(req.params.id);
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    res.json(service);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update airport service
+app.put('/api/airport-services/:id', async (req, res) => {
+  try {
+    const service = await AirportEntry.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    res.json({ message: 'Service updated successfully', service });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Delete airport service
+app.delete('/api/airport-services/:id', async (req, res) => {
+  try {
+    const service = await AirportEntry.findByIdAndDelete(req.params.id);
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    res.json({ message: 'Service deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const nodemailer = require('nodemailer');
 
 app.post('/send-route-email', async (req, res) => {

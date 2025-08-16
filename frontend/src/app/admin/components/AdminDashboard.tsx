@@ -7,6 +7,7 @@ import OutstationRoutes from "./OutstationRoutes";
 import LocalForm from "./LocalForm";
 import LocalServices from "./LocalServices";
 import AirportForm from "./AirportForm";
+import AirportServices from "./AirportServices";
 import UserDashboard from "./UserDashboard";
 import RouteDashboard from "./RouteDashboard";
 
@@ -19,6 +20,8 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
   const outstationFormRef = useRef<{ openModal: () => void }>(null);
   const localServicesRef = useRef<{ fetchServices: () => void }>(null);
   const localFormRef = useRef<{ openModal: () => void }>(null);
+  const airportServicesRef = useRef<{ fetchServices: () => void }>(null);
+  const airportFormRef = useRef<{ openModal: () => void }>(null);
 
   const handleRouteAdded = () => {
     // Refresh the routes list when a new route is added
@@ -45,6 +48,20 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
     // Open the LocalForm modal
     if (localFormRef.current) {
       localFormRef.current.openModal();
+    }
+  };
+
+  const handleAirportServiceAdded = () => {
+    // Refresh the airport services list when a new service is added
+    if (airportServicesRef.current) {
+      airportServicesRef.current.fetchServices();
+    }
+  };
+
+  const handleAddAirportService = () => {
+    // Open the AirportForm modal
+    if (airportFormRef.current) {
+      airportFormRef.current.openModal();
     }
   };
 
@@ -78,7 +95,18 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
           </div>
         );
       case "AIRPORT":
-        return <AirportForm />;
+        return (
+          <div className="space-y-8">
+            <AirportServices
+              ref={airportServicesRef}
+              onAddService={handleAddAirportService}
+            />
+            <AirportForm
+              ref={airportFormRef}
+              onServiceAdded={handleAirportServiceAdded}
+            />
+          </div>
+        );
       default:
         return <UserDashboard />;
     }
