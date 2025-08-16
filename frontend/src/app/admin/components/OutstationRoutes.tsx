@@ -5,6 +5,7 @@ import React, {
   useEffect,
   forwardRef,
   useImperativeHandle,
+  useCallback,
 } from "react";
 import { theme } from "@/styles/theme";
 import { ThemedInput } from "@/components/UI/ThemedInput";
@@ -56,6 +57,7 @@ const OutstationRoutes = forwardRef<OutstationRoutesRef, OutstationRoutesProps>(
     });
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [selectedRoute, setSelectedRoute] = useState<OutstationRoute | null>(
@@ -64,15 +66,33 @@ const OutstationRoutes = forwardRef<OutstationRoutesRef, OutstationRoutesProps>(
     const [editForm, setEditForm] = useState<Partial<OutstationRoute>>({});
     const [message, setMessage] = useState("");
 
+    // Debounce search term
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        setDebouncedSearchTerm(searchTerm);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }, [searchTerm]);
+
     useEffect(() => {
       fetchRoutes();
-    }, [pagination.currentPage]);
+    }, [pagination.currentPage, debouncedSearchTerm]);
 
     const fetchRoutes = async () => {
       setLoading(true);
       try {
+        const params = new URLSearchParams({
+          page: pagination.currentPage.toString(),
+          limit: "10",
+        });
+
+        if (debouncedSearchTerm.trim()) {
+          params.append("search", debouncedSearchTerm.trim());
+        }
+
         const response = await api.get(
-          `/api/outstation-routes?page=${pagination.currentPage}&limit=10`
+          `/api/outstation-routes?${params.toString()}`
         );
         setRoutes(response.data.routes);
         setPagination(response.data.pagination);
@@ -154,11 +174,52 @@ const OutstationRoutes = forwardRef<OutstationRoutesRef, OutstationRoutesProps>(
       setEditForm({ ...editForm, cars: updatedCars });
     };
 
-    const filteredRoutes = routes.filter(
-      (route) =>
-        route.city1.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        route.city2.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      setSearchTerm(value);
+      // Reset to first page when searching
+      if (pagination.currentPage !== 1) {
+        setPagination((prev) => ({ ...prev, currentPage: 1 }));
+      }
+    };
+
+    const handlePageChange = useCallback((newPage: number) => {
+      setPagination((prev) => ({ ...prev, currentPage: newPage }));
+    }, []);
+
+    const generatePageNumbers = useCallback(() => {
+      const pages = [];
+      const totalPages = pagination.totalPages;
+      const currentPage = pagination.currentPage;
+
+      // Always show first page
+      pages.push(1);
+
+      // Show pages around current page
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      if (start > 2) {
+        pages.push("...");
+      }
+
+      for (let i = start; i <= end; i++) {
+        if (i > 1 && i < totalPages) {
+          pages.push(i);
+        }
+      }
+
+      if (end < totalPages - 1) {
+        pages.push("...");
+      }
+
+      // Always show last page if there's more than one page
+      if (totalPages > 1) {
+        pages.push(totalPages);
+      }
+
+      return pages;
+    }, [pagination.totalPages, pagination.currentPage]);
 
     const formatDate = (dateString: string) => {
       return new Date(dateString).toLocaleDateString();
@@ -175,10 +236,6 @@ const OutstationRoutes = forwardRef<OutstationRoutesRef, OutstationRoutesProps>(
           {isOneWay ? "One Way" : "Two Way"}
         </span>
       );
-    };
-
-    const handlePageChange = (newPage: number) => {
-      setPagination((prev) => ({ ...prev, currentPage: newPage }));
     };
 
     return (
@@ -230,20 +287,39 @@ const OutstationRoutes = forwardRef<OutstationRoutesRef, OutstationRoutesProps>(
         </div>
 
         {/* Search */}
-        <div className="flex-1">
+        <div className="flex-1 relative">
           <input
             type="text"
             placeholder="Search routes by city..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+            onChange={handleSearchChange}
+            className="w-full px-4 py-3 pr-12 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
           />
+          {searchTerm && (
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setPagination((prev) => ({ ...prev, currentPage: 1 }));
+              }}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+          )}
+          {debouncedSearchTerm !== searchTerm && (
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-500"></div>
+            </div>
+          )}
         </div>
 
         {/* Loading Indicator */}
         {loading && (
-          <div className="text-center py-4">
-            <div className="text-gray-400">Loading routes...</div>
+          <div className="text-center py-8">
+            <div className="inline-flex items-center space-x-2">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-500"></div>
+              <div className="text-gray-400">Loading routes...</div>
+            </div>
           </div>
         )}
 
@@ -281,7 +357,7 @@ const OutstationRoutes = forwardRef<OutstationRoutesRef, OutstationRoutesProps>(
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRoutes.map((route, index) => (
+                  {routes.map((route, index) => (
                     <tr
                       key={route._id}
                       className={`border-b border-gray-700 hover:bg-gray-700 transition-colors ${
@@ -346,11 +422,13 @@ const OutstationRoutes = forwardRef<OutstationRoutesRef, OutstationRoutesProps>(
               </table>
             </div>
 
-            {filteredRoutes.length === 0 && (
+            {routes.length === 0 && !loading && (
               <div className="p-8 text-center">
                 <div className="text-gray-400 text-lg">No routes found</div>
                 <div className="text-gray-500 text-sm mt-2">
-                  Try adjusting your search or add new routes
+                  {searchTerm
+                    ? "Try adjusting your search terms"
+                    : "Add new routes to get started"}
                 </div>
               </div>
             )}
@@ -359,24 +437,68 @@ const OutstationRoutes = forwardRef<OutstationRoutesRef, OutstationRoutesProps>(
 
         {/* Pagination */}
         {!loading && pagination.totalPages > 1 && (
-          <div className="flex justify-center space-x-2">
+          <div className="flex justify-center items-center space-x-2">
             <button
               onClick={() => handlePageChange(pagination.currentPage - 1)}
-              disabled={!pagination.hasPrev}
+              disabled={!pagination.hasPrev || loading}
               className="px-4 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600 transition-colors"
             >
-              Previous
+              {loading ? (
+                <div className="inline-flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Loading...</span>
+                </div>
+              ) : (
+                "Previous"
+              )}
             </button>
-            <span className="px-4 py-2 text-white">
-              Page {pagination.currentPage} of {pagination.totalPages}
-            </span>
+
+            {generatePageNumbers().map((page, index) => (
+              <button
+                key={index}
+                onClick={() =>
+                  typeof page === "number" ? handlePageChange(page) : null
+                }
+                disabled={page === "..." || loading}
+                className={`px-4 py-2 rounded-lg text-white transition-colors ${
+                  page === "..."
+                    ? "bg-transparent cursor-default"
+                    : page === pagination.currentPage
+                    ? "bg-yellow-500 text-black font-semibold"
+                    : "bg-gray-700 hover:bg-gray-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+
             <button
               onClick={() => handlePageChange(pagination.currentPage + 1)}
-              disabled={!pagination.hasNext}
+              disabled={!pagination.hasNext || loading}
               className="px-4 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600 transition-colors"
             >
-              Next
+              {loading ? (
+                <div className="inline-flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Loading...</span>
+                </div>
+              ) : (
+                "Next"
+              )}
             </button>
+          </div>
+        )}
+
+        {/* Pagination Info */}
+        {!loading && (
+          <div className="text-center text-gray-400 text-sm">
+            Showing {routes.length} of {pagination.totalRoutes} routes
+            {pagination.totalPages > 1 && (
+              <span>
+                {" "}
+                • Page {pagination.currentPage} of {pagination.totalPages}
+              </span>
+            )}
           </div>
         )}
 
