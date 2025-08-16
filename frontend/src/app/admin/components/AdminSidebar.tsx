@@ -25,42 +25,42 @@ const sidebarItems: SidebarItem[] = [
     id: "USERS",
     label: "User Dashboard",
     icon: "👥",
-    description: "Manage user accounts and view statistics"
+    description: "Manage user accounts and view statistics",
   },
-  {
-    id: "ROUTES",
-    label: "Route Dashboard",
-    icon: "🗺️",
-    description: "Manage routes and view booking data"
-  },
+  // {
+  //   id: "ROUTES",
+  //   label: "Route Dashboard",
+  //   icon: "🗺️",
+  //   description: "Manage routes and view booking data"
+  // },
   {
     id: "OUTSTATION",
     label: "Outstation Routes",
     icon: "🚗",
-    description: "Manage inter-city routes and pricing"
+    description: "Manage inter-city routes and pricing",
   },
   {
     id: "LOCAL",
     label: "Local Services",
     icon: "🏙️",
-    description: "Manage local city services and packages"
+    description: "Manage local city services and packages",
   },
   {
     id: "AIRPORT",
     label: "Airport Services",
     icon: "✈️",
-    description: "Manage airport transfer services"
-  }
+    description: "Manage airport transfer services",
+  },
 ];
 
-export default function AdminSidebar({ 
-  activeTab, 
-  onTabChange, 
+export default function AdminSidebar({
+  activeTab,
+  onTabChange,
   onLogout,
   onSidebarToggle,
   isMobile = false,
   isTablet = false,
-  onClose
+  onClose,
 }: AdminSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -90,21 +90,22 @@ export default function AdminSidebar({
         'button, [tabindex]:not([tabindex="-1"])'
       );
       const currentIndex = Array.from(focusableElements).findIndex(
-        el => el === document.activeElement
+        (el) => el === document.activeElement
       );
 
       switch (e.key) {
-        case 'ArrowDown':
+        case "ArrowDown":
           e.preventDefault();
           const nextIndex = (currentIndex + 1) % focusableElements.length;
           (focusableElements[nextIndex] as HTMLElement)?.focus();
           break;
-        case 'ArrowUp':
+        case "ArrowUp":
           e.preventDefault();
-          const prevIndex = currentIndex <= 0 ? focusableElements.length - 1 : currentIndex - 1;
+          const prevIndex =
+            currentIndex <= 0 ? focusableElements.length - 1 : currentIndex - 1;
           (focusableElements[prevIndex] as HTMLElement)?.focus();
           break;
-        case 'Escape':
+        case "Escape":
           if (isMobile && onClose) {
             onClose();
           } else if (!isMobile) {
@@ -114,25 +115,25 @@ export default function AdminSidebar({
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isMobile, onClose]);
 
   const getSidebarWidth = () => {
     if (isMobile) {
-      return 'w-80'; // Full width on mobile
+      return "w-80"; // Full width on mobile
     } else if (isTablet) {
-      return 'w-20'; // Always collapsed on tablet
+      return "w-20"; // Always collapsed on tablet
     } else {
-      return isCollapsed ? 'w-20' : 'w-72';
+      return isCollapsed ? "w-20" : "w-72";
     }
   };
 
   const getSidebarPosition = () => {
     if (isMobile) {
-      return 'fixed left-0 top-0 h-full z-50';
+      return "fixed left-0 top-0 h-full z-50";
     } else {
-      return 'fixed left-0 top-0 h-full z-50';
+      return "fixed left-0 top-0 h-full z-50";
     }
   };
 
@@ -143,7 +144,7 @@ export default function AdminSidebar({
       style={{
         backgroundColor: theme.colors.background.card,
         borderRight: `1px solid ${theme.colors.border.primary}`,
-        boxShadow: '4px 0 20px rgba(0, 0, 0, 0.3)',
+        boxShadow: "4px 0 20px rgba(0, 0, 0, 0.3)",
       }}
       role="navigation"
       aria-label="Admin navigation"
@@ -152,12 +153,12 @@ export default function AdminSidebar({
       <div className="p-3 sm:p-4 md:p-6 border-b border-gray-700 bg-gradient-to-r from-gray-800 to-gray-900 relative">
         <div className="flex items-center justify-between">
           {!isCollapsed && (
-            <h2 
+            <h2
               className="text-lg sm:text-xl font-bold truncate"
               style={{
                 color: theme.colors.accent.gold,
                 fontFamily: theme.typography.fontFamily.sans.join(", "),
-                textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
+                textShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
               }}
             >
               Penta Cab Admin
@@ -213,20 +214,24 @@ export default function AdminSidebar({
                 }}
                 className={`w-full text-left px-3 sm:px-4 py-3 sm:py-4 transition-all duration-300 rounded-xl mx-1 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-800 transform hover:scale-105 ${
                   activeTab === item.id
-                    ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-black font-semibold shadow-lg'
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white hover:shadow-md'
+                    ? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-black font-semibold shadow-lg"
+                    : "text-gray-300 hover:bg-gray-700 hover:text-white hover:shadow-md"
                 }`}
                 aria-current={activeTab === item.id ? "page" : undefined}
                 title={item.description}
                 aria-describedby={`${item.id}-description`}
               >
                 <div className="flex items-center space-x-3 sm:space-x-4">
-                  <span className="text-xl sm:text-2xl" aria-hidden="true">{item.icon}</span>
+                  <span className="text-xl sm:text-2xl" aria-hidden="true">
+                    {item.icon}
+                  </span>
                   {!isCollapsed && (
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-sm sm:text-base truncate">{item.label}</div>
+                      <div className="font-semibold text-sm sm:text-base truncate">
+                        {item.label}
+                      </div>
                       {activeTab === item.id && (
-                        <div 
+                        <div
                           id={`${item.id}-description`}
                           className="text-xs opacity-90 mt-1 font-medium truncate"
                         >
@@ -257,19 +262,26 @@ export default function AdminSidebar({
         >
           {!isCollapsed ? (
             <div className="flex items-center justify-center space-x-2 sm:space-x-3">
-              <span className="text-lg sm:text-xl" aria-hidden="true">🚪</span>
+              <span className="text-lg sm:text-xl" aria-hidden="true">
+                🚪
+              </span>
               <span className="text-sm sm:text-base">Logout</span>
             </div>
           ) : (
-            <span className="text-lg sm:text-xl" aria-hidden="true">🚪</span>
+            <span className="text-lg sm:text-xl" aria-hidden="true">
+              🚪
+            </span>
           )}
         </button>
       </div>
 
       {/* Screen reader only instructions */}
       <div className="sr-only">
-        <p>Use arrow keys to navigate between menu items. Press Escape to collapse the sidebar.</p>
+        <p>
+          Use arrow keys to navigate between menu items. Press Escape to
+          collapse the sidebar.
+        </p>
       </div>
     </aside>
   );
-} 
+}

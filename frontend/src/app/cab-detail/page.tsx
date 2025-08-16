@@ -3,12 +3,6 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import type { BookingFormData } from "@/types/booking";
-import {
-  sendAirportEmail,
-  sendLocalEmail,
-  sendIntercityEmail,
-  prepareEmailData,
-} from "@/services/emailService";
 
 // Theme configuration (matching HeroSection and cab-lists)
 const theme = {
@@ -153,40 +147,11 @@ const BookingDetailsContent: React.FC = () => {
         throw new Error("Booking data not available");
       }
 
-      // Prepare email data based on service type
-      const emailData = prepareEmailData(
-        bookingData,
-        formData,
-        bookingData.serviceType as "AIRPORT" | "LOCAL" | "OUTSTATION"
-      );
-
-      console.log("Prepared email data:", emailData);
-
-      // Send email based on service type
-      let emailResponse;
-      switch (bookingData.serviceType) {
-        case "AIRPORT":
-          emailResponse = await sendAirportEmail(emailData);
-          break;
-        case "LOCAL":
-          emailResponse = await sendLocalEmail(emailData);
-          break;
-        case "OUTSTATION":
-          emailResponse = await sendIntercityEmail(emailData);
-          break;
-        default:
-          throw new Error(
-            `Unsupported service type: ${bookingData.serviceType}`
-          );
-      }
-
-      console.log("Email sent successfully:", emailResponse);
-
       // Show success message
       setSubmitStatus({
         type: "success",
         message:
-          "Booking request sent successfully! You will receive a confirmation email shortly.",
+          "Booking request submitted successfully! Please proceed to confirm your booking.",
       });
 
       // Combine booking data with form data and send to cab-booking page

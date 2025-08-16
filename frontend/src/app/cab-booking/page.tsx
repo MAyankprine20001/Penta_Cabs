@@ -2,6 +2,12 @@
 "use client";
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import {
+  sendAirportEmail,
+  sendLocalEmail,
+  sendIntercityEmail,
+  prepareEmailData,
+} from "@/services/emailService";
 
 // Theme configuration (matching cab-lists)
 const theme = {
@@ -283,6 +289,7 @@ const CabBookingContent = () => {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [isProcessingEmail, setIsProcessingEmail] = useState(false);
 
   // Parse URL parameters for booking and cab data
   const searchParams = useSearchParams();
@@ -340,19 +347,119 @@ const CabBookingContent = () => {
     // This will trigger a re-render with updated payment options
   }, [bookingData.selectedCabPrice]);
 
-  const handlePayment = () => {
-    if (selectedPayment === "0") {
-      // For cash payment, just show success message
-      alert("Booking confirmed! You can pay cash to the driver.");
-      console.log("Cash payment selected");
-    } else {
-      // For advance payments, open payment gateway
-      setShowPaymentModal(true);
+  const handlePayment = async () => {
+    setIsProcessingEmail(true);
+    try {
+      // Send email based on service type before proceeding with payment
+      if (bookingData.serviceType) {
+        const emailData = prepareEmailData(
+          bookingData,
+          {
+            name: bookingData.name || "",
+            mobile: bookingData.mobile || "",
+            email: bookingData.email || "",
+            pickup: bookingData.pickup || "",
+            drop: bookingData.drop || "",
+            remark: bookingData.remark || "",
+            whatsapp: bookingData.whatsapp === "true",
+            gstDetails: bookingData.gstDetails === "true",
+            gst: bookingData.gst || "",
+          },
+          bookingData.serviceType as "AIRPORT" | "LOCAL" | "OUTSTATION"
+        );
+
+        console.log("Prepared email data:", emailData);
+
+        // Send email based on service type
+        let emailResponse;
+        switch (bookingData.serviceType) {
+          case "AIRPORT":
+            emailResponse = await sendAirportEmail(emailData);
+            break;
+          case "LOCAL":
+            emailResponse = await sendLocalEmail(emailData);
+            break;
+          case "OUTSTATION":
+            emailResponse = await sendIntercityEmail(emailData);
+            break;
+          default:
+            console.warn(
+              `Unsupported service type: ${bookingData.serviceType}`
+            );
+        }
+
+        if (emailResponse) {
+          console.log("Email sent successfully:", emailResponse);
+        }
+      }
+
+      // Proceed with payment logic
+      if (selectedPayment === "0") {
+        // For cash payment, just show success message
+        alert("Booking confirmed! You can pay cash to the driver.");
+        console.log("Cash payment selected");
+      } else {
+        // For advance payments, open payment gateway
+        setShowPaymentModal(true);
+      }
+    } catch (error) {
+      console.error("Error sending email:", error);
+      // Still proceed with payment even if email fails
+      if (selectedPayment === "0") {
+        alert("Booking confirmed! You can pay cash to the driver.");
+        console.log("Cash payment selected");
+      } else {
+        setShowPaymentModal(true);
+      }
+    } finally {
+      setIsProcessingEmail(false);
     }
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = async () => {
     setPaymentSuccess(true);
+
+    try {
+      // Send email again after successful payment to ensure confirmation
+      if (bookingData.serviceType) {
+        const emailData = prepareEmailData(
+          bookingData,
+          {
+            name: bookingData.name || "",
+            mobile: bookingData.mobile || "",
+            email: bookingData.email || "",
+            pickup: bookingData.pickup || "",
+            drop: bookingData.drop || "",
+            remark: bookingData.remark || "",
+            whatsapp: bookingData.whatsapp === "true",
+            gstDetails: bookingData.gstDetails === "true",
+            gst: bookingData.gst || "",
+          },
+          bookingData.serviceType as "AIRPORT" | "LOCAL" | "OUTSTATION"
+        );
+
+        // Send email based on service type
+        let emailResponse;
+        switch (bookingData.serviceType) {
+          case "AIRPORT":
+            emailResponse = await sendAirportEmail(emailData);
+            break;
+          case "LOCAL":
+            emailResponse = await sendLocalEmail(emailData);
+            break;
+          case "OUTSTATION":
+            emailResponse = await sendIntercityEmail(emailData);
+            break;
+        }
+
+        if (emailResponse) {
+          console.log("Confirmation email sent successfully:", emailResponse);
+        }
+      }
+    } catch (error) {
+      console.error("Error sending confirmation email:", error);
+    }
+
     alert(
       `Payment of ₹${
         paymentOptions.find((opt) => opt.id === selectedPayment)?.amount
@@ -604,28 +711,31 @@ const CabBookingContent = () => {
               {/* Payment Button */}
               <button
                 onClick={handlePayment}
-                disabled={!acceptTerms}
+                disabled={!acceptTerms || isProcessingEmail}
                 className={`w-full font-bold py-4 rounded-xl text-lg transition-all duration-500 transform relative overflow-hidden group ${
-                  !acceptTerms
+                  !acceptTerms || isProcessingEmail
                     ? "opacity-50 cursor-not-allowed"
                     : "hover:scale-105"
                 }`}
                 style={{
-                  background: acceptTerms
-                    ? theme.gradients.gold
-                    : theme.colors.text.muted,
+                  background:
+                    acceptTerms && !isProcessingEmail
+                      ? theme.gradients.gold
+                      : theme.colors.text.muted,
                   color: theme.colors.primary.black,
                   fontWeight: theme.typography.fontWeight.bold,
-                  boxShadow: acceptTerms
-                    ? `0 20px 60px ${theme.colors.shadow.gold}`
-                    : "none",
-                  border: acceptTerms
-                    ? `2px solid ${theme.colors.accent.lightGold}`
-                    : "none",
+                  boxShadow:
+                    acceptTerms && !isProcessingEmail
+                      ? `0 20px 60px ${theme.colors.shadow.gold}`
+                      : "none",
+                  border:
+                    acceptTerms && !isProcessingEmail
+                      ? `2px solid ${theme.colors.accent.lightGold}`
+                      : "none",
                 }}
               >
                 {/* Button glow effect */}
-                {acceptTerms && (
+                {acceptTerms && !isProcessingEmail && (
                   <div
                     className="absolute inset-0 blur-xl opacity-50 group-hover:opacity-70 transition-opacity duration-300"
                     style={{
@@ -635,9 +745,16 @@ const CabBookingContent = () => {
                   />
                 )}
                 <span className="relative z-10">
-                  {selectedPayment === "0"
-                    ? "Confirm Booking"
-                    : `Proceed To Payment ₹${getSelectedAmount()}`}
+                  {isProcessingEmail ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></div>
+                      SENDING EMAIL...
+                    </div>
+                  ) : selectedPayment === "0" ? (
+                    "Confirm Booking"
+                  ) : (
+                    `Proceed To Payment ₹${getSelectedAmount()}`
+                  )}
                 </span>
               </button>
             </div>
