@@ -5,6 +5,7 @@ import { theme } from "@/styles/theme";
 import OutstationForm from "./OutstationForm";
 import OutstationRoutes from "./OutstationRoutes";
 import LocalForm from "./LocalForm";
+import LocalServices from "./LocalServices";
 import AirportForm from "./AirportForm";
 import UserDashboard from "./UserDashboard";
 import RouteDashboard from "./RouteDashboard";
@@ -16,6 +17,8 @@ interface AdminDashboardProps {
 export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
   const outstationRoutesRef = useRef<{ fetchRoutes: () => void }>(null);
   const outstationFormRef = useRef<{ openModal: () => void }>(null);
+  const localServicesRef = useRef<{ fetchServices: () => void }>(null);
+  const localFormRef = useRef<{ openModal: () => void }>(null);
 
   const handleRouteAdded = () => {
     // Refresh the routes list when a new route is added
@@ -28,6 +31,20 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
     // Open the OutstationForm modal
     if (outstationFormRef.current) {
       outstationFormRef.current.openModal();
+    }
+  };
+
+  const handleServiceAdded = () => {
+    // Refresh the services list when a new service is added
+    if (localServicesRef.current) {
+      localServicesRef.current.fetchServices();
+    }
+  };
+
+  const handleAddService = () => {
+    // Open the LocalForm modal
+    if (localFormRef.current) {
+      localFormRef.current.openModal();
     }
   };
 
@@ -51,7 +68,15 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
           </div>
         );
       case "LOCAL":
-        return <LocalForm />;
+        return (
+          <div className="space-y-8">
+            <LocalServices
+              ref={localServicesRef}
+              onAddService={handleAddService}
+            />
+            <LocalForm ref={localFormRef} onServiceAdded={handleServiceAdded} />
+          </div>
+        );
       case "AIRPORT":
         return <AirportForm />;
       default:

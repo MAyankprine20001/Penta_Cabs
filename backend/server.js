@@ -157,6 +157,88 @@ app.delete('/api/outstation-routes/:id', async (req, res) => {
   }
 });
 
+// Get all local services with pagination
+app.get('/api/local-services', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    
+    let query = {};
+    if (req.query.search) {
+      query = {
+        $or: [
+          { city: { $regex: req.query.search, $options: 'i' } },
+          { package: { $regex: req.query.search, $options: 'i' } }
+        ]
+      };
+    }
+    
+    const services = await LocalRideEntry.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    
+    const total = await LocalRideEntry.countDocuments(query);
+    
+    res.json({
+      services,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalServices: total,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get single local service by ID
+app.get('/api/local-services/:id', async (req, res) => {
+  try {
+    const service = await LocalRideEntry.findById(req.params.id);
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    res.json(service);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update local service
+app.put('/api/local-services/:id', async (req, res) => {
+  try {
+    const service = await LocalRideEntry.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    res.json({ message: 'Service updated successfully', service });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Delete local service
+app.delete('/api/local-services/:id', async (req, res) => {
+  try {
+    const service = await LocalRideEntry.findByIdAndDelete(req.params.id);
+    if (!service) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    res.json({ message: 'Service deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const nodemailer = require('nodemailer');
 
 app.post('/send-route-email', async (req, res) => {
