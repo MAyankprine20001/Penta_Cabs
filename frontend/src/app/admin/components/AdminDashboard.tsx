@@ -15,11 +15,19 @@ interface AdminDashboardProps {
 
 export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
   const outstationRoutesRef = useRef<{ fetchRoutes: () => void }>(null);
+  const outstationFormRef = useRef<{ openModal: () => void }>(null);
 
   const handleRouteAdded = () => {
     // Refresh the routes list when a new route is added
     if (outstationRoutesRef.current) {
       outstationRoutesRef.current.fetchRoutes();
+    }
+  };
+
+  const handleAddRoute = () => {
+    // Open the OutstationForm modal
+    if (outstationFormRef.current) {
+      outstationFormRef.current.openModal();
     }
   };
 
@@ -32,8 +40,14 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
       case "OUTSTATION":
         return (
           <div className="space-y-8">
-            <OutstationRoutes ref={outstationRoutesRef} />
-            <OutstationForm onRouteAdded={handleRouteAdded} />
+            <OutstationRoutes
+              ref={outstationRoutesRef}
+              onAddRoute={handleAddRoute}
+            />
+            <OutstationForm
+              ref={outstationFormRef}
+              onRouteAdded={handleRouteAdded}
+            />
           </div>
         );
       case "LOCAL":
