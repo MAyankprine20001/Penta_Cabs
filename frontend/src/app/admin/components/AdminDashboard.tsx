@@ -3,6 +3,7 @@
 import React from "react";
 import { theme } from "@/styles/theme";
 import OutstationForm from "./OutstationForm";
+import OutstationRoutes from "./OutstationRoutes";
 import LocalForm from "./LocalForm";
 import AirportForm from "./AirportForm";
 import UserDashboard from "./UserDashboard";
@@ -20,7 +21,12 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
       case "ROUTES":
         return <RouteDashboard />;
       case "OUTSTATION":
-        return <OutstationForm />;
+        return (
+          <div className="space-y-8">
+            <OutstationRoutes />
+            <OutstationForm />
+          </div>
+        );
       case "LOCAL":
         return <LocalForm />;
       case "AIRPORT":
@@ -73,27 +79,25 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
   return (
     <div className="space-y-8">
       {/* Section Description */}
-      <div 
+      <div
         className="p-6 rounded-2xl border border-gray-700"
         style={{
           backgroundColor: theme.colors.background.card,
           border: `1px solid ${theme.colors.border.primary}`,
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.2)",
         }}
       >
         <div className="flex items-center space-x-4 mb-4">
-          <div 
+          <div
             className="w-12 h-12 rounded-xl flex items-center justify-center"
             style={{
               backgroundColor: theme.colors.accent.gold,
             }}
           >
-            <span className="text-2xl">
-              {getTabIcon()}
-            </span>
+            <span className="text-2xl">{getTabIcon()}</span>
           </div>
           <div>
-            <h3 
+            <h3
               className="text-xl font-bold"
               style={{
                 color: theme.colors.accent.gold,
@@ -102,7 +106,7 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
             >
               {activeTab.charAt(0) + activeTab.slice(1).toLowerCase()} Services
             </h3>
-            <p 
+            <p
               className="text-gray-400 font-medium"
               style={{
                 fontFamily: theme.typography.fontFamily.sans.join(", "),
@@ -115,16 +119,16 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
       </div>
 
       {/* Form Content */}
-      <div 
+      <div
         className="rounded-2xl border border-gray-700 overflow-hidden"
         style={{
           backgroundColor: theme.colors.background.card,
           border: `1px solid ${theme.colors.border.primary}`,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
         }}
       >
         <div className="p-6 border-b border-gray-700 bg-gradient-to-r from-gray-800 to-gray-900">
-          <h4 
+          <h4
             className="text-lg font-semibold"
             style={{
               color: theme.colors.accent.gold,
@@ -137,10 +141,8 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
             Update your {activeTab.toLowerCase()} service settings and pricing
           </p>
         </div>
-        <div className="p-6">
-          {renderContent()}
-        </div>
+        <div className="p-6">{renderContent()}</div>
       </div>
     </div>
   );
-} 
+}

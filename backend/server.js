@@ -85,6 +85,78 @@ app.post('/add-outstation', async (req, res) => {
   }
 });
 
+// Get all outstation routes with pagination
+app.get('/api/outstation-routes', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    
+    const routes = await OutstationEntry.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    
+    const total = await OutstationEntry.countDocuments();
+    
+    res.json({
+      routes,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalRoutes: total,
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get single outstation route by ID
+app.get('/api/outstation-routes/:id', async (req, res) => {
+  try {
+    const route = await OutstationEntry.findById(req.params.id);
+    if (!route) {
+      return res.status(404).json({ error: 'Route not found' });
+    }
+    res.json(route);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update outstation route
+app.put('/api/outstation-routes/:id', async (req, res) => {
+  try {
+    const route = await OutstationEntry.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!route) {
+      return res.status(404).json({ error: 'Route not found' });
+    }
+    res.json({ message: 'Route updated successfully', route });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Delete outstation route
+app.delete('/api/outstation-routes/:id', async (req, res) => {
+  try {
+    const route = await OutstationEntry.findByIdAndDelete(req.params.id);
+    if (!route) {
+      return res.status(404).json({ error: 'Route not found' });
+    }
+    res.json({ message: 'Route deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const nodemailer = require('nodemailer');
 
 app.post('/send-route-email', async (req, res) => {
