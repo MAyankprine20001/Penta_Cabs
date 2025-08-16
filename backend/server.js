@@ -85,6 +85,85 @@ app.post('/add-outstation', async (req, res) => {
   }
 });
 
+// Get all outstation routes with pagination
+app.get('/api/outstation-routes', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const totalRoutes = await OutstationEntry.countDocuments();
+    const routes = await OutstationEntry.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.json({
+      routes,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalRoutes / limit),
+        totalRoutes,
+        hasNextPage: page < Math.ceil(totalRoutes / limit),
+        hasPrevPage: page > 1
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching outstation routes:', err);
+    res.status(500).json({ error: 'Failed to fetch routes' });
+  }
+});
+
+// Get single outstation route by ID
+app.get('/api/outstation-routes/:id', async (req, res) => {
+  try {
+    const route = await OutstationEntry.findById(req.params.id);
+    if (!route) {
+      return res.status(404).json({ error: 'Route not found' });
+    }
+    res.json(route);
+  } catch (err) {
+    console.error('Error fetching route:', err);
+    res.status(500).json({ error: 'Failed to fetch route' });
+  }
+});
+
+// Update outstation route
+app.put('/api/outstation-routes/:id', async (req, res) => {
+  try {
+    const updatedRoute = await OutstationEntry.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedRoute) {
+      return res.status(404).json({ error: 'Route not found' });
+    }
+    
+    res.json({ message: 'Route updated successfully', route: updatedRoute });
+  } catch (err) {
+    console.error('Error updating route:', err);
+    res.status(500).json({ error: 'Failed to update route' });
+  }
+});
+
+// Delete outstation route
+app.delete('/api/outstation-routes/:id', async (req, res) => {
+  try {
+    const deletedRoute = await OutstationEntry.findByIdAndDelete(req.params.id);
+    
+    if (!deletedRoute) {
+      return res.status(404).json({ error: 'Route not found' });
+    }
+    
+    res.json({ message: 'Route deleted successfully', route: deletedRoute });
+  } catch (err) {
+    console.error('Error deleting route:', err);
+    res.status(500).json({ error: 'Failed to delete route' });
+  }
+});
+
 const nodemailer = require('nodemailer');
 
 app.post('/send-route-email', async (req, res) => {
@@ -399,31 +478,54 @@ app.get('/api/available-airports', async (req, res) => {
 // Options should be based on actual entries from the admin (from the OutstationEntry collection)
 app.get('/api/available-outstation-cities', async (req, res) => {
   try {
-    const entries = await OutstationEntry.find({ 'cars.available': true }).select('city1 city2 -_id');
+    const entries = await OutstationEntry.find({ 'cars.available': true }).select('city1 city2 tripType -_id');
 
-    const cityPairs = new Set();
+    const cityMap = {}; // city1 => { city2s: Set, tripTypes: Set }
     const fromCities = new Set();
-    const cityMap = {}; // city1 => Set(city2s)
+    const allRoutes = [];
 
     entries.forEach(entry => {
-      fromCities.add(entry.city1);
+      const { city1, city2, tripType } = entry;
+      fromCities.add(city1);
 
-      if (!cityMap[entry.city1]) {
-        cityMap[entry.city1] = new Set();
+      if (!cityMap[city1]) {
+        cityMap[city1] = { city2s: new Set(), tripTypes: new Set() };
       }
-      cityMap[entry.city1].add(entry.city2);
+      cityMap[city1].city2s.add(city2);
+      cityMap[city1].tripTypes.add(tripType);
+
+      // Add route information
+      allRoutes.push({
+        from: city1,
+        to: city2,
+        tripType: tripType
+      });
     });
 
-    // Convert to plain arrays
+    // Convert to plain arrays and organize by trip type
     const formatted = {};
     for (const from in cityMap) {
-      formatted[from] = [...cityMap[from]];
+      formatted[from] = {
+        destinations: [...cityMap[from].city2s],
+        tripTypes: [...cityMap[from].tripTypes]
+      };
     }
 
-    res.json({ cityMap: formatted, fromCities: [...fromCities] });
+    // Group routes by trip type for easier frontend consumption
+    const routesByType = {
+      'one-way': allRoutes.filter(route => route.tripType === 'one-way'),
+      'two-way': allRoutes.filter(route => route.tripType === 'two-way')
+    };
+
+    res.json({ 
+      cityMap: formatted, 
+      fromCities: [...fromCities],
+      routesByType,
+      totalRoutes: allRoutes.length
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error fetching available outstation cities:', err);
+    res.status(500).json({ error: 'Failed to fetch available cities' });
   }
 });
 
