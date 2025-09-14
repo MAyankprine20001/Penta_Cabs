@@ -104,60 +104,103 @@ const CabBookingContent = () => {
     });
   };
 
-const onPayment = async () => {
-  try {
-    // 1) Create order on backend (price in rupees)
-    const { data: order } = await axios.post(
-      "http://localhost:5000/api/create-order",
-      { price: 1, carId: 123, packageID: 456 }
-    );
+  const onPayment = async () => {
+    try {
+      // ---- HARD PRICE ----
+      // Option A: use the selected advance amount:
+      const amountRupees = getSelectedAmount();
 
-    if (!order?.success || !order?.id) {
-      console.error("Order creation failed:", order);
-      alert("Order creation failed");
-      return;
-    }
+      // Option B: hardcode a price (uncomment next line and comment the line above)
+      // const amountRupees = 1;
 
-    // 2) Open Razorpay Checkout with the order_id from backend
-    const rzp = new (window as any).Razorpay({
-      key: "rzp_test_RHDNpy93TPh9mv",
-      order_id: order.id, // <-- MUST be the Razorpay order id
-      amount: order.amount, // optional, Checkout derives from order
-      currency: order.currency, // optional
-      name: "Your App",
-      description: "Test Transaction",
-      handler: async function (response: any) {
-        // 3) Send exact keys expected by backend
-        const payload = {
-          razorpay_order_id: response.razorpay_order_id,
-          razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_signature: response.razorpay_signature,
-        };
+      if (!amountRupees || Number.isNaN(amountRupees)) {
+        alert("Invalid amount selected");
+        return;
+      }
 
-        try {
-          const { data } = await axios.post(
-            "http://localhost:5000/api/verify-payment",
-            payload,
-            { headers: { "Content-Type": "application/json" } }
-          );
-          if (data?.success) {
-            alert("Payment Successful");
-          } else {
-            alert("Payment Failed");
+      // build payload including your booking object
+      const createOrderPayload = {
+        price: amountRupees, // rupees; backend converts to paise
+        selectedPayment, // keep context if needed
+        booking: bookingData, // <-- your full booking object
+      };
+
+      const { data: order } = await axios.post(
+        "http://localhost:5000/api/create-order",
+        createOrderPayload,
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      if (!order?.success || !order?.id) {
+        console.error("Order creation failed:", order);
+        alert("Order creation failed");
+        return;
+      }
+
+      const rzp = new (window as any).Razorpay({
+        key: "rzp_test_RHDNpy93TPh9mv",
+        order_id: order.id,
+        amount: order.amount, // derived from order
+        currency: order.currency, // derived from order
+        name: "Your App",
+        description: "Cab Booking Advance",
+        // Optional but nice: show who’s paying
+        prefill: {
+          name: bookingData.name || "",
+          email: bookingData.email || "",
+          contact: bookingData.mobile || "",
+        },
+        // Optional metadata visible in Razorpay dashboard
+        notes: {
+          serviceType: bookingData.serviceType || "",
+          tripType: bookingData.tripType || "",
+          route:
+            bookingData.from && bookingData.to
+              ? `${bookingData.from} -> ${bookingData.to}`
+              : bookingData.route || "",
+          date: bookingData.date || "",
+          time: bookingData.time || bookingData.pickupTime || "",
+          selectedCab: bookingData.selectedCabName || bookingData.car || "",
+        },
+        handler: async (response: any) => {
+          const payload = {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          };
+
+          try {
+            const { data } = await axios.post(
+              "http://localhost:5000/api/verify-payment",
+              payload,
+              { headers: { "Content-Type": "application/json" } }
+            );
+
+            if (data?.success) {
+              // ✅ Reuse your existing email flow
+              await handlePaymentSuccess();
+            } else {
+              alert("Payment verification failed");
+            }
+          } catch (e) {
+            console.error("Verification request failed:", e);
+            alert("Verification failed");
           }
-        } catch (e) {
-          console.error("Verification request failed:", e);
-          alert("Verification failed");
-        }
-      },
-      // prefill/theme optional...
-    });
+        },
+        modal: {
+          ondismiss: () => {
+            console.log("Checkout closed");
+          },
+        },
+        // theme: { color: "#F37254" },
+      });
 
-    rzp.open();
-  } catch (error) {
-    console.error("Error creating order:", error);
-  }
-};
+      rzp.open();
+    } catch (error) {
+      console.error("Error creating order:", error);
+      alert("Could not start payment");
+    }
+  };
 
   useEffect(() => {
     loadScript("https://checkout.razorpay.com/v1/checkout.js");
@@ -177,6 +220,8 @@ const onPayment = async () => {
     });
     setBookingData(data);
   }, [searchParams]);
+
+  console.log("Parsed booking data:", bookingData);
 
   // Calculate dynamic payment options based on booking data
   const getPaymentOptions = () => {

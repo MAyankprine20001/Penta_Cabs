@@ -4,20 +4,35 @@ require("dotenv").config();
 
 const razorPayInstance = CreateRazorPayInstance();
 
+// controller
+
 exports.createOrder = async (req, res) => {
   try {
-    // Accept price in INR rupees; store and charge in paise
-    let { price, carId, packageID } = req.body;
+    let { price, booking, selectedPayment } = req.body;
+
     if (price == null || isNaN(Number(price))) {
       return res.status(400).json({ success: false, message: "Invalid price" });
     }
+
     const amountInPaise = Math.round(Number(price) * 100);
 
     const options = {
       amount: amountInPaise,
       currency: "INR",
       receipt: `receipt_${Date.now()}`,
-      // notes: { carId, packageID }, // (optional) keep metadata with the order
+      // Razorpay will persist these; great for ops/reconciliation
+      notes: {
+        selectedPayment: selectedPayment ?? "",
+        // keep it short; avoid dumping huge strings
+        serviceType: booking?.serviceType ?? "",
+        tripType: booking?.tripType ?? "",
+        city: booking?.city ?? "",
+        date: booking?.date ?? "",
+        time: booking?.time ?? booking?.pickupTime ?? "",
+        car: booking?.selectedCabName ?? booking?.car ?? "",
+        name: booking?.name ?? "",
+        mobile: booking?.mobile ?? "",
+      },
     };
 
     razorPayInstance.orders.create(options, (err, order) => {
@@ -28,10 +43,9 @@ exports.createOrder = async (req, res) => {
           .json({ success: false, message: "Error creating order" });
       }
 
-      // Return a flat, frontend-friendly shape
       return res.status(200).json({
         success: true,
-        id: order.id, // <- This is the order_id needed for Checkout
+        id: order.id,
         amount: order.amount,
         currency: order.currency,
         receipt: order.receipt,
