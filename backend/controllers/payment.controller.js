@@ -5,50 +5,95 @@ require("dotenv").config();
 const razorPayInstance = CreateRazorPayInstance();
 
 exports.createOrder = async (req, res) => {
-  const { amount, carId, packageID } = req.body; // Expecting amount in smallest currency unit (e.g., paise for INR)
-
-  const options = {
-    amount: amount * 100, // amount in the smallest currency unit
-    currency: "INR",
-    receipt: `receipt_${Date.now()}`,
-  };
-
   try {
+    // Accept price in INR rupees; store and charge in paise
+    let { price, carId, packageID } = req.body;
+    if (price == null || isNaN(Number(price))) {
+      return res.status(400).json({ success: false, message: "Invalid price" });
+    }
+    const amountInPaise = Math.round(Number(price) * 100);
+
+    const options = {
+      amount: amountInPaise,
+      currency: "INR",
+      receipt: `receipt_${Date.now()}`,
+      // notes: { carId, packageID }, // (optional) keep metadata with the order
+    };
+
     razorPayInstance.orders.create(options, (err, order) => {
       if (err) {
-        return res.status(500).json({
-          success: false,
-          message: "Error creating order",
-        });
+        console.error("Razorpay order error:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Error creating order" });
       }
+
+      // Return a flat, frontend-friendly shape
       return res.status(200).json({
-        order,
+        success: true,
+        id: order.id, // <- This is the order_id needed for Checkout
+        amount: order.amount,
+        currency: order.currency,
+        receipt: order.receipt,
+        status: order.status,
       });
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Error creating order",
-      error: error.message,
-    });
+    console.error("createOrder exception:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Error creating order" });
   }
 };
 
 exports.verifyPayment = async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
-    req.body;
-  const secret = process.env.RAZORPAY_KEY_SECRET;
-  //creating hmac object
-  const hmac = crypto.createHmac("sha256", secret);
-  //passing the data to be hashed
-  hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
-  //creating the hmac in the required format
- const generated_signature = hmac.digest("hex");
-    //comparing our signature with the actual signature
-    if (generated_signature === razorpay_signature) {
-      return res.status(200).json({ success: true, message: "Payment verified successfully" });
-    } else {
-      return res.status(400).json({ success: false, message: "Invalid signature sent!" });
-    }          
-    
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+      req.body || {};
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Missing required fields: razorpay_order_id, razorpay_payment_id, razorpay_signature",
+      });
+    }
+
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    if (!secret) {
+      return res.status(500).json({
+        success: false,
+        message: "Server misconfigured: RAZORPAY_KEY_SECRET not set",
+      });
+    }
+
+    const payload = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expectedSignature = crypto
+      .createHmac("sha256", secret)
+      .update(payload)
+      .digest("hex");
+
+    // (optional) timing-safe compare when lengths match
+    const ok =
+      expectedSignature.length === razorpay_signature.length &&
+      crypto.timingSafeEqual(
+        Buffer.from(expectedSignature, "hex"),
+        Buffer.from(razorpay_signature, "hex")
+      );
+
+    if (ok) {
+      return res
+        .status(200)
+        .json({ success: true, message: "Payment verified successfully" });
+    }
+
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid signature sent!" });
+  } catch (err) {
+    console.error("verifyPayment error:", err);
+    return res
+      .status(500)
+      .json({ success: false, message: "Verification error" });
+  }
 };

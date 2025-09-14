@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/app/cab-booking/page.jsx
 "use client";
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense, use } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   sendAirportEmail,
@@ -10,6 +11,8 @@ import {
   createBookingRequest,
   prepareBookingRequestData,
 } from "@/services/emailService";
+import axios from "axios";
+import { on } from "events";
 
 // Theme configuration (matching cab-lists)
 const theme = {
@@ -74,216 +77,6 @@ const theme = {
   },
 };
 
-// Payment Gateway Modal Component
-const PaymentGatewayModal = ({ isOpen, onClose, amount, onPaymentSuccess }) => {
-  const [paymentMethod, setPaymentMethod] = useState("upi");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [showQR, setShowQR] = useState(false);
-
-  const handlePayment = async () => {
-    setIsProcessing(true);
-
-    try {
-      if (paymentMethod === "upi") {
-        setShowQR(true);
-        // Simulate payment processing
-        setTimeout(() => {
-          setIsProcessing(false);
-          setShowQR(false);
-          onPaymentSuccess();
-          onClose();
-        }, 3000);
-      } else {
-        // Handle other payment methods (card, net banking)
-        setTimeout(() => {
-          setIsProcessing(false);
-          onPaymentSuccess();
-          onClose();
-        }, 2000);
-      }
-    } catch (error) {
-      console.error("Payment failed:", error);
-      setIsProcessing(false);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div
-        className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto"
-        style={{ fontFamily: theme.typography.fontFamily.sans.join(", ") }}
-      >
-        {/* Header */}
-        <div className="flex justify-between items-center p-4 border-b">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-orange-500 rounded flex items-center justify-center">
-              <span className="text-white font-bold text-sm">M</span>
-            </div>
-            <span className="font-semibold text-gray-800">makemyride</span>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-xl font-bold"
-          >
-            ×
-          </button>
-        </div>
-
-        {/* Payment Content */}
-        <div className="p-4">
-          {showQR ? (
-            // QR Code Display
-            <div className="text-center">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-xs">✓</span>
-                </div>
-                <span className="font-medium">Show QR Code</span>
-              </div>
-              <p className="text-sm text-gray-600 mb-4">
-                Scan with any UPI app
-              </p>
-
-              {/* QR Code Placeholder */}
-              <div className="w-48 h-48 mx-auto bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center mb-4">
-                <div className="text-center">
-                  <div
-                    className="w-24 h-24 bg-black mx-auto mb-2"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='%23000'%3E%3Crect x='0' y='0' width='10' height='10'/%3E%3Crect x='20' y='0' width='10' height='10'/%3E%3Crect x='0' y='20' width='10' height='10'/%3E%3C/g%3E%3C/svg%3E")`,
-                      backgroundSize: "cover",
-                    }}
-                  ></div>
-                  <p className="text-xs text-gray-500">QR Code</p>
-                </div>
-              </div>
-
-              <p className="text-sm text-gray-600 mb-2">
-                Checking payment status... 14:03
-              </p>
-              <div className="w-12 h-1 bg-blue-500 rounded-full mx-auto animate-pulse"></div>
-
-              <div className="flex items-center justify-center gap-2 mt-4 text-sm text-gray-600">
-                <span>🏪</span>
-                <span>💳</span>
-                <span>₹</span>
-                <span>and more</span>
-              </div>
-            </div>
-          ) : (
-            // Payment Method Selection
-            <>
-              <div className="space-y-4 mb-6">
-                {/* UPI ID Option */}
-                <div
-                  className={`flex items-center justify-between p-3 rounded-lg cursor-pointer border-2 ${
-                    paymentMethod === "upi"
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200"
-                  }`}
-                  onClick={() => setPaymentMethod("upi")}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full border-2 border-blue-500 flex items-center justify-center">
-                      {paymentMethod === "upi" && (
-                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium">UPI ID</p>
-                      <p className="text-sm text-gray-600">
-                        PhonePe, Gpay, PayTM, BHIM & more
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Debit/Credit Card Option */}
-                <div
-                  className={`flex items-center justify-between p-3 rounded-lg cursor-pointer border-2 ${
-                    paymentMethod === "card"
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200"
-                  }`}
-                  onClick={() => setPaymentMethod("card")}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full border-2 border-blue-500 flex items-center justify-center">
-                      {paymentMethod === "card" && (
-                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium">Debit/Credit Card</p>
-                      <p className="text-sm text-gray-600">
-                        Visa, MasterCard, Rupay etc
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Net Banking Option */}
-                <div
-                  className={`flex items-center justify-between p-3 rounded-lg cursor-pointer border-2 ${
-                    paymentMethod === "netbanking"
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200"
-                  }`}
-                  onClick={() => setPaymentMethod("netbanking")}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full border-2 border-blue-500 flex items-center justify-center">
-                      {paymentMethod === "netbanking" && (
-                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium">Net Banking</p>
-                      <p className="text-sm text-gray-600">
-                        Choose your bank to complete payment
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Amount and Pay Button */}
-              <div className="border-t pt-4">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-lg font-bold">
-                    ₹{amount.toLocaleString()}
-                  </span>
-                  <span className="text-sm text-gray-600">View Booking</span>
-                </div>
-
-                <button
-                  onClick={handlePayment}
-                  disabled={isProcessing}
-                  className={`w-full py-3 rounded-lg font-semibold text-white transition-all ${
-                    isProcessing
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-blue-600 hover:bg-blue-700"
-                  }`}
-                >
-                  {isProcessing ? "Processing..." : "PAY"}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-center p-4 border-t text-sm text-gray-600">
-          <span>Powered by</span>
-          <span className="ml-1 font-semibold text-purple-600">📱 PhonePe</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // Move the main logic to a child component
 const CabBookingContent = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -296,6 +89,79 @@ const CabBookingContent = () => {
   // Parse URL parameters for booking and cab data
   const searchParams = useSearchParams();
   const [bookingData, setBookingData] = useState<Record<string, string>>({});
+
+  const loadScript = (src: string) => {
+    return new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.onload = () => {
+        resolve(true);
+      };
+      script.onerror = () => {
+        resolve(false);
+      };
+      document.body.appendChild(script);
+    });
+  };
+
+const onPayment = async () => {
+  try {
+    // 1) Create order on backend (price in rupees)
+    const { data: order } = await axios.post(
+      "http://localhost:5000/api/create-order",
+      { price: 1, carId: 123, packageID: 456 }
+    );
+
+    if (!order?.success || !order?.id) {
+      console.error("Order creation failed:", order);
+      alert("Order creation failed");
+      return;
+    }
+
+    // 2) Open Razorpay Checkout with the order_id from backend
+    const rzp = new (window as any).Razorpay({
+      key: "rzp_test_RHDNpy93TPh9mv",
+      order_id: order.id, // <-- MUST be the Razorpay order id
+      amount: order.amount, // optional, Checkout derives from order
+      currency: order.currency, // optional
+      name: "Your App",
+      description: "Test Transaction",
+      handler: async function (response: any) {
+        // 3) Send exact keys expected by backend
+        const payload = {
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+        };
+
+        try {
+          const { data } = await axios.post(
+            "http://localhost:5000/api/verify-payment",
+            payload,
+            { headers: { "Content-Type": "application/json" } }
+          );
+          if (data?.success) {
+            alert("Payment Successful");
+          } else {
+            alert("Payment Failed");
+          }
+        } catch (e) {
+          console.error("Verification request failed:", e);
+          alert("Verification failed");
+        }
+      },
+      // prefill/theme optional...
+    });
+
+    rzp.open();
+  } catch (error) {
+    console.error("Error creating order:", error);
+  }
+};
+
+  useEffect(() => {
+    loadScript("https://checkout.razorpay.com/v1/checkout.js");
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -740,7 +606,7 @@ const CabBookingContent = () => {
 
               {/* Payment Button */}
               <button
-                onClick={handlePayment}
+                onClick={onPayment}
                 disabled={!acceptTerms || isProcessingEmail}
                 className={`w-full font-bold py-4 rounded-xl text-lg transition-all duration-500 transform relative overflow-hidden group ${
                   !acceptTerms || isProcessingEmail
@@ -883,14 +749,6 @@ const CabBookingContent = () => {
           </div>
         </div>
       </div>
-
-      {/* Payment Gateway Modal */}
-      <PaymentGatewayModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        amount={getSelectedAmount()}
-        onPaymentSuccess={handlePaymentSuccess}
-      />
 
       {/* Bottom decorative line */}
       <div
