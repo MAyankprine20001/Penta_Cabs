@@ -9,6 +9,7 @@ const localRoutes = require("./routes/local.routes");
 const outstationRoutes = require("./routes/outstation.routes");
 const bookingRoutes = require("./routes/booking.routes");
 const paymentRoutes = require("./routes/payments.routes");
+const blogRoutes = require("./routes/blog.routes");
 
 const app = express();
 
@@ -30,5 +31,6 @@ app.use(localRoutes);
 app.use(outstationRoutes);
 app.use(bookingRoutes);
 app.use(paymentRoutes);
+app.use(blogRoutes);
 
 module.exports = app;

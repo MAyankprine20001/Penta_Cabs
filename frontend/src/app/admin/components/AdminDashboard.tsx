@@ -10,6 +10,8 @@ import AirportForm from "./AirportForm";
 import AirportServices from "./AirportServices";
 import UserDashboard from "./UserDashboard";
 import RouteDashboard from "./RouteDashboard";
+import BlogManagement from "./BlogManagement";
+import BlogForm from "./BlogForm";
 
 interface AdminDashboardProps {
   activeTab: string;
@@ -22,6 +24,8 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
   const localFormRef = useRef<{ openModal: () => void }>(null);
   const airportServicesRef = useRef<{ fetchServices: () => void }>(null);
   const airportFormRef = useRef<{ openModal: () => void }>(null);
+  const blogManagementRef = useRef<{ fetchBlogs: () => void }>(null);
+  const blogFormRef = useRef<{ openModal: (blog?: any) => void }>(null);
 
   const handleRouteAdded = () => {
     // Refresh the routes list when a new route is added
@@ -62,6 +66,27 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
     // Open the AirportForm modal
     if (airportFormRef.current) {
       airportFormRef.current.openModal();
+    }
+  };
+
+  const handleBlogSaved = () => {
+    // Refresh the blog list when a new blog is saved
+    if (blogManagementRef.current) {
+      blogManagementRef.current.fetchBlogs();
+    }
+  };
+
+  const handleAddBlog = () => {
+    // Open the BlogForm modal for new blog
+    if (blogFormRef.current) {
+      blogFormRef.current.openModal();
+    }
+  };
+
+  const handleEditBlog = (blog: any) => {
+    // Open the BlogForm modal for editing
+    if (blogFormRef.current) {
+      blogFormRef.current.openModal(blog);
     }
   };
 
@@ -107,6 +132,17 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
             />
           </div>
         );
+      case "BLOG":
+        return (
+          <div className="space-y-8">
+            <BlogManagement
+              ref={blogManagementRef}
+              onAddBlog={handleAddBlog}
+              onEditBlog={handleEditBlog}
+            />
+            <BlogForm ref={blogFormRef} onBlogSaved={handleBlogSaved} />
+          </div>
+        );
       default:
         return <UserDashboard />;
     }
@@ -124,6 +160,8 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
         return "Configure local city services with different packages and vehicle options.";
       case "AIRPORT":
         return "Set up airport transfer services with pickup and drop pricing.";
+      case "BLOG":
+        return "Create and manage blog posts, articles, and content for your website.";
       default:
         return "";
     }
@@ -141,6 +179,8 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
         return "🏙️";
       case "AIRPORT":
         return "✈️";
+      case "BLOG":
+        return "📝";
       default:
         return "📊";
     }

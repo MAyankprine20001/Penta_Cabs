@@ -51,6 +51,12 @@ const sidebarItems: SidebarItem[] = [
     icon: "✈️",
     description: "Manage airport transfer services",
   },
+  {
+    id: "BLOG",
+    label: "Blog Management",
+    icon: "📝",
+    description: "Create and manage blog posts and articles",
+  },
 ];
 
 export default function AdminSidebar({
