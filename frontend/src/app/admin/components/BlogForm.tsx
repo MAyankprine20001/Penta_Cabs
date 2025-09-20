@@ -719,14 +719,16 @@ const BlogForm = forwardRef<
                       fontFamily: "system-ui, -apple-system, sans-serif",
                       fontSize: "16px",
                       lineHeight: "1.7",
+                      color: "#ffffff",
                     }}
                     data-placeholder="Start writing your blog post here... Use the toolbar above to format your text, add links, and upload images. You can also drag and drop images directly into this area."
                   />
                   <style jsx>{`
                     #content-editor:empty:before {
                       content: attr(data-placeholder);
-                      color: #9ca3af;
+                      color: #ffffff;
                       pointer-events: none;
+                      opacity: 0.7;
                     }
                   `}</style>
                 </div>
@@ -763,7 +765,7 @@ const BlogForm = forwardRef<
                     dangerouslySetInnerHTML={{
                       __html:
                         contentHtml ||
-                        '<p class="text-gray-400 italic">Start typing to see preview...</p>',
+                        '<p class="text-white italic opacity-70">Start typing to see preview...</p>',
                     }}
                   />
                 </div>

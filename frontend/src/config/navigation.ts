@@ -13,7 +13,8 @@ import {
   FaDollarSign,
   FaClock,
   FaUserTie,
-  FaMapPin
+  FaMapPin,
+  FaBlog
 } from 'react-icons/fa';
 import { 
   MdLocalTaxi,
@@ -79,6 +80,12 @@ export const navigationItems: NavItem[] = [
       },
       
     ]
+  },
+  { 
+    label: 'Blog', 
+    description: 'Read our latest travel tips and news',
+    href: '/blog',
+    icon: FaBlog,
   },
   { 
     label: 'About Us', 
