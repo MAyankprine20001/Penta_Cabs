@@ -38,36 +38,42 @@ const BlogManagement = forwardRef<
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalBlogs, setTotalBlogs] = useState(0);
-  const blogsPerPage = 10;
+  const [blogsPerPage, setBlogsPerPage] = useState(10);
 
-  const fetchBlogs = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
-        }/blogs?status=${statusFilter}&search=${searchTerm}&page=${currentPage}&limit=${blogsPerPage}`
-      );
-      const data = await response.json();
-      if (data.success) {
-        setBlogs(data.data || []);
-        setTotalPages(data.totalPages || 1);
-        setTotalBlogs(data.total || 0);
-      } else {
-        console.error("Failed to fetch blogs:", data.message);
+  const fetchBlogs = useCallback(
+    async (page?: number, limit?: number) => {
+      setLoading(true);
+      try {
+        const pageToUse = page ?? currentPage;
+        const limitToUse = limit ?? blogsPerPage;
+
+        const response = await fetch(
+          `${
+            process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+          }/blogs?status=${statusFilter}&search=${searchTerm}&page=${pageToUse}&limit=${limitToUse}`
+        );
+        const data = await response.json();
+        if (data.success) {
+          setBlogs(data.data || []);
+          setTotalPages(data.pagination?.totalPages || 1);
+          setTotalBlogs(data.pagination?.total || 0);
+        } else {
+          console.error("Failed to fetch blogs:", data.message);
+          setBlogs([]);
+          setTotalPages(1);
+          setTotalBlogs(0);
+        }
+      } catch (error) {
+        console.error("Error fetching blogs:", error);
         setBlogs([]);
         setTotalPages(1);
         setTotalBlogs(0);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching blogs:", error);
-      setBlogs([]);
-      setTotalPages(1);
-      setTotalBlogs(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter, searchTerm, currentPage, blogsPerPage]);
+    },
+    [statusFilter, searchTerm, currentPage, blogsPerPage]
+  );
 
   useImperativeHandle(ref, () => ({
     fetchBlogs: () => {
@@ -353,114 +359,74 @@ const BlogManagement = forwardRef<
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between bg-gray-800 px-4 py-3 border border-gray-600 rounded-lg">
-          <div className="flex-1 flex justify-between sm:hidden">
+      {totalBlogs > 0 && (
+        <div className="flex items-center justify-between bg-gray-800 px-6 py-4 border border-gray-600 rounded-lg">
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-300">
+              Page {currentPage} of {totalPages}
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">Show</span>
+              <select
+                value={blogsPerPage}
+                onChange={(e) => {
+                  const newLimit = parseInt(e.target.value);
+                  setBlogsPerPage(newLimit);
+                  setCurrentPage(1); // Reset to first page when changing page size
+                  fetchBlogs(1, newLimit);
+                }}
+                className="px-2 py-1 text-sm border border-gray-500 rounded bg-gray-700 text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="relative inline-flex items-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-8 h-8 flex items-center justify-center border border-gray-500 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-700 transition-colors"
+              title="Previous page"
             >
-              Previous
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
             </button>
+
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-8 h-8 flex items-center justify-center border border-gray-500 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-700 transition-colors"
+              title="Next page"
             >
-              Next
-            </button>
-          </div>
-          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-400">
-                Showing{" "}
-                <span className="font-medium">
-                  {Math.min((currentPage - 1) * blogsPerPage + 1, totalBlogs)}
-                </span>{" "}
-                to{" "}
-                <span className="font-medium">
-                  {Math.min(currentPage * blogsPerPage, totalBlogs)}
-                </span>{" "}
-                of <span className="font-medium">{totalBlogs}</span> results
-              </p>
-            </div>
-            <div>
-              <nav
-                className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
-                aria-label="Pagination"
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-600 bg-gray-700 text-sm font-medium text-gray-300 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="sr-only">Previous</span>
-                  <svg
-                    className="h-5 w-5"
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
-
-                {/* Page numbers */}
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => handlePageChange(pageNum)}
-                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                        pageNum === currentPage
-                          ? "z-10 bg-yellow-500 border-yellow-500 text-gray-900"
-                          : "bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-600 bg-gray-700 text-sm font-medium text-gray-300 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="sr-only">Next</span>
-                  <svg
-                    className="h-5 w-5"
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
-              </nav>
-            </div>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </button>
           </div>
         </div>
       )}

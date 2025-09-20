@@ -4,10 +4,18 @@ const router = express.Router();
 // Blog data storage (in a real app, this would come from a database)
 let blogs = [];
 
-// Get all blogs with pagination
+// Get all blogs with enhanced pagination
 router.get('/blogs', (req, res) => {
   try {
-    const { status, search, page = 1, limit = 10 } = req.query;
+    const { 
+      status, 
+      search, 
+      page = 1, 
+      limit = 10, 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc',
+      author 
+    } = req.query;
     
     let filteredBlogs = [...blogs];
     
@@ -16,22 +24,64 @@ router.get('/blogs', (req, res) => {
       filteredBlogs = filteredBlogs.filter(blog => blog.status === status);
     }
     
-    // Search functionality
+    // Filter by author
+    if (author) {
+      filteredBlogs = filteredBlogs.filter(blog => 
+        blog.author.toLowerCase().includes(author.toLowerCase())
+      );
+    }
+    
+    // Search functionality (searches in title, excerpt, content, and tags)
     if (search) {
       const searchTerm = search.toLowerCase();
       filteredBlogs = filteredBlogs.filter(blog => 
         blog.title.toLowerCase().includes(searchTerm) ||
         blog.excerpt.toLowerCase().includes(searchTerm) ||
+        blog.content.toLowerCase().includes(searchTerm) ||
         blog.tags.some(tag => tag.toLowerCase().includes(searchTerm))
       );
     }
     
-    // Sort by creation date (newest first)
-    filteredBlogs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    // Sorting functionality
+    filteredBlogs.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortBy) {
+        case 'title':
+          aValue = a.title.toLowerCase();
+          bValue = b.title.toLowerCase();
+          break;
+        case 'author':
+          aValue = a.author.toLowerCase();
+          bValue = b.author.toLowerCase();
+          break;
+        case 'status':
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        case 'publishedAt':
+          aValue = new Date(a.publishedAt || a.createdAt);
+          bValue = new Date(b.publishedAt || b.createdAt);
+          break;
+        case 'updatedAt':
+          aValue = new Date(a.updatedAt);
+          bValue = new Date(b.updatedAt);
+          break;
+        default: // createdAt
+          aValue = new Date(a.createdAt);
+          bValue = new Date(b.createdAt);
+      }
+      
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+      } else {
+        return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+      }
+    });
     
     // Calculate pagination
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit))); // Max 100 items per page
     const total = filteredBlogs.length;
     const totalPages = Math.ceil(total / limitNum);
     const startIndex = (pageNum - 1) * limitNum;
@@ -40,13 +90,42 @@ router.get('/blogs', (req, res) => {
     // Get paginated data
     const paginatedBlogs = filteredBlogs.slice(startIndex, endIndex);
     
+    // Calculate pagination metadata
+    const hasNextPage = pageNum < totalPages;
+    const hasPrevPage = pageNum > 1;
+    const nextPage = hasNextPage ? pageNum + 1 : null;
+    const prevPage = hasPrevPage ? pageNum - 1 : null;
+    
+    // Count blogs by status
+    const statusCounts = {
+      total: blogs.length,
+      published: blogs.filter(b => b.status === 'published').length,
+      draft: blogs.filter(b => b.status === 'draft').length
+    };
+    
     res.json({
       success: true,
       data: paginatedBlogs,
-      total,
-      totalPages,
-      currentPage: pageNum,
-      limit: limitNum
+      pagination: {
+        total,
+        totalPages,
+        currentPage: pageNum,
+        limit: limitNum,
+        hasNextPage,
+        hasPrevPage,
+        nextPage,
+        prevPage,
+        startIndex: startIndex + 1,
+        endIndex: Math.min(endIndex, total)
+      },
+      statusCounts,
+      filters: {
+        status: status || 'all',
+        search: search || '',
+        author: author || '',
+        sortBy,
+        sortOrder
+      }
     });
   } catch (error) {
     console.error('Error fetching blogs:', error);
@@ -238,6 +317,156 @@ router.patch('/blogs/:id/status', (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to update blog status',
+      error: error.message
+    });
+  }
+});
+
+// Get blog statistics
+router.get('/blogs/stats/summary', (req, res) => {
+  try {
+    const totalBlogs = blogs.length;
+    const publishedBlogs = blogs.filter(b => b.status === 'published').length;
+    const draftBlogs = blogs.filter(b => b.status === 'draft').length;
+    
+    // Get recent blogs (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const recentBlogs = blogs.filter(b => new Date(b.createdAt) > sevenDaysAgo).length;
+    
+    // Get blogs by author
+    const authorStats = blogs.reduce((acc, blog) => {
+      acc[blog.author] = (acc[blog.author] || 0) + 1;
+      return acc;
+    }, {});
+    
+    // Get blogs by month (for the last 6 months)
+    const monthlyStats = {};
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    
+    blogs.forEach(blog => {
+      const blogDate = new Date(blog.createdAt);
+      if (blogDate > sixMonthsAgo) {
+        const monthKey = blogDate.toISOString().slice(0, 7); // YYYY-MM format
+        monthlyStats[monthKey] = (monthlyStats[monthKey] || 0) + 1;
+      }
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        total: totalBlogs,
+        published: publishedBlogs,
+        draft: draftBlogs,
+        recent: recentBlogs,
+        authorStats,
+        monthlyStats
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching blog statistics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch blog statistics',
+      error: error.message
+    });
+  }
+});
+
+// Bulk operations for blogs
+router.post('/blogs/bulk', (req, res) => {
+  try {
+    const { operation, blogIds, data } = req.body;
+    
+    if (!operation || !blogIds || !Array.isArray(blogIds)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Operation and blogIds array are required'
+      });
+    }
+    
+    let updatedBlogs = [];
+    let deletedCount = 0;
+    
+    switch (operation) {
+      case 'delete':
+        // Bulk delete
+        blogIds.forEach(id => {
+          const index = blogs.findIndex(b => b.id === id);
+          if (index !== -1) {
+            blogs.splice(index, 1);
+            deletedCount++;
+          }
+        });
+        break;
+        
+      case 'updateStatus':
+        // Bulk status update
+        if (!data || !data.status) {
+          return res.status(400).json({
+            success: false,
+            message: 'Status is required for updateStatus operation'
+          });
+        }
+        
+        blogIds.forEach(id => {
+          const index = blogs.findIndex(b => b.id === id);
+          if (index !== -1) {
+            blogs[index] = {
+              ...blogs[index],
+              status: data.status,
+              publishedAt: data.status === 'published' ? new Date().toISOString().split('T')[0] : blogs[index].publishedAt,
+              updatedAt: new Date().toISOString()
+            };
+            updatedBlogs.push(blogs[index]);
+          }
+        });
+        break;
+        
+      case 'updateAuthor':
+        // Bulk author update
+        if (!data || !data.author) {
+          return res.status(400).json({
+            success: false,
+            message: 'Author is required for updateAuthor operation'
+          });
+        }
+        
+        blogIds.forEach(id => {
+          const index = blogs.findIndex(b => b.id === id);
+          if (index !== -1) {
+            blogs[index] = {
+              ...blogs[index],
+              author: data.author,
+              updatedAt: new Date().toISOString()
+            };
+            updatedBlogs.push(blogs[index]);
+          }
+        });
+        break;
+        
+      default:
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid operation. Supported operations: delete, updateStatus, updateAuthor'
+        });
+    }
+    
+    res.json({
+      success: true,
+      message: `Bulk ${operation} operation completed successfully`,
+      data: {
+        processedCount: blogIds.length,
+        deletedCount: operation === 'delete' ? deletedCount : undefined,
+        updatedBlogs: updatedBlogs.length > 0 ? updatedBlogs : undefined
+      }
+    });
+  } catch (error) {
+    console.error('Error performing bulk operation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to perform bulk operation',
       error: error.message
     });
   }
