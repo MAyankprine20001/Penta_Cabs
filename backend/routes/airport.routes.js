@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const transporter = require('../services/email.service');
 const { AirportEntry } = require('../model');
+const { generateBookingConfirmationTemplate } = require('../utils/emailTemplates');
 
 // GET /api/airport-services (pagination + search)
 router.get('/api/airport-services', async (req, res) => {
@@ -123,31 +124,31 @@ router.post('/api/send-airport-email', async (req, res) => {
   const { email, route, cab, traveller, date, time, serviceType, otherLocation } = req.body;
   if (!email || !cab) return res.status(400).json({ error: 'Missing fields' });
 
-  const html = `
-    <h2>🛫 Airport ${serviceType === 'drop' ? 'Drop' : 'Pickup'} Booking Confirmed</h2>
-    <p><strong>Route:</strong> ${route}</p>
-    <p><strong>From/To:</strong> ${otherLocation}</p>
-    <p><strong>Date & Time:</strong> ${date} at ${time}</p>
-    <p><strong>Cab:</strong> ${cab.type.toUpperCase()} – ₹${cab.price}</p>
-    <hr/>
-    <h3>🧍 Traveller Details</h3>
-    <p><strong>Name:</strong> ${traveller.name}</p>
-    <p><strong>Mobile:</strong> ${traveller.mobile}</p>
-    <p><strong>Pickup Address:</strong> ${traveller.pickup || '-'}</p>
-    <p><strong>Drop Address:</strong> ${traveller.drop || '-'}</p>
-    <p><strong>Remark:</strong> ${traveller.remark || '-'}</p>
-    <p><strong>GST:</strong> ${traveller.gst || '-'}</p>
-    <br/><p><strong>MakeRide Team</strong></p>`;
+  // Generate the modern email template
+  const html = generateBookingConfirmationTemplate({
+    serviceType: 'AIRPORT',
+    route,
+    car: cab,
+    traveller: {
+      ...traveller,
+      email: email
+    },
+    date,
+    time
+  });
 
   try {
     await transporter.sendMail({
-      from: `"MakeRide" <${process.env.EMAIL_USER}>`,
+      from: `"MakeRide Admin" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: `Your Airport Ride Booking`,
+      subject: `🛫 Airport ${serviceType === 'drop' ? 'Drop' : 'Pickup'} Booking Confirmation`,
       html
     });
-    res.json({ message: 'Email sent' });
-  } catch (err) { res.status(500).json({ error: 'Email failed' }); }
+    res.json({ message: 'Airport booking email sent successfully' });
+  } catch (err) { 
+    console.error('Email sending error:', err);
+    res.status(500).json({ error: 'Email failed to send' }); 
+  }
 });
 
 module.exports = router;

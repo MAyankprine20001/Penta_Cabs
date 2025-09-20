@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const transporter = require('../services/email.service');
 const { LocalRideEntry } = require('../model');
+const { generateBookingConfirmationTemplate } = require('../utils/emailTemplates');
 
 // GET /api/local-services (pagination + search)
 router.get('/api/local-services', async (req, res) => {
@@ -92,24 +93,30 @@ router.post('/send-local-email', async (req, res) => {
   if (!email || !route || !car || !traveller) {
     return res.status(400).json({ error: 'Missing data for email' });
   }
-  const html = `
-    <h2>🚖 Local Ride Booking</h2>
-    <p><strong>Route:</strong> ${route}</p>
-    <p><strong>Car Selected:</strong> ${car.type.toUpperCase()} - ₹${car.price}</p>
-    <hr />
-    <h3>👤 Traveller Details</h3>
-    <p><strong>Name:</strong> ${traveller.name}</p>
-    <p><strong>Mobile:</strong> ${traveller.mobile}</p>
-    <p><strong>Email:</strong> ${email}</p>
-    <p><strong>Pickup:</strong> ${traveller.pickupAddress}</p>
-    <p><strong>Drop:</strong> ${traveller.dropAddress}</p>
-    <p><strong>Remark:</strong> ${traveller.remark}</p>
-    ${traveller.gst ? `<p><strong>GST:</strong> ${traveller.gst}</p>` : ''}
-    <br/><p>Thanks,<br/><strong>MakeRide Team</strong></p>`;
+  
+  // Generate the modern email template
+  const html = generateBookingConfirmationTemplate({
+    serviceType: 'LOCAL',
+    route,
+    car,
+    traveller: {
+      ...traveller,
+      email: email
+    }
+  });
+  
   try {
-    await transporter.sendMail({ from: `"MakeRide Admin" <${process.env.EMAIL_USER}>`, to: email, subject: '🧾 Your Local Ride Booking Confirmation', html });
-    res.json({ message: 'Local ride email sent' });
-  } catch (err) { res.status(500).json({ error: 'Failed to send email' }); }
+    await transporter.sendMail({ 
+      from: `"MakeRide Admin" <${process.env.EMAIL_USER}>`, 
+      to: email, 
+      subject: '🚖 Local Ride Booking Confirmation', 
+      html 
+    });
+    res.json({ message: 'Local ride email sent successfully' });
+  } catch (err) { 
+    console.error('Email sending error:', err);
+    res.status(500).json({ error: 'Failed to send email' }); 
+  }
 });
 
 module.exports = router;

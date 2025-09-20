@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const transporter = require('../services/email.service');
 const { BookingRequest } = require('../model');
+const { generateDriverDetailsTemplate, generateDeclineTemplate } = require('../utils/emailTemplates');
 
 // POST /api/create-booking-request
 router.post('/api/create-booking-request', async (req, res) => {
@@ -47,20 +48,15 @@ router.put('/api/booking-requests/:id/driver-details', async (req, res) => {
     );
     if (!bookingRequest) return res.status(404).json({ error: 'Booking request not found' });
 
-    const html = `
-      <h2>🚖 Your Driver Details</h2>
-      <p><strong>Route:</strong> ${bookingRequest.route}</p>
-      <p><strong>Date:</strong> ${bookingRequest.date}</p>
-      <p><strong>Time:</strong> ${bookingRequest.time}</p>
-      <hr/>
-      <h3>👨‍💼 Driver Information</h3>
-      <p><strong>Name:</strong> ${driverDetails.name}</p>
-      <p><strong>WhatsApp:</strong> ${driverDetails.whatsappNumber}</p>
-      <p><strong>Vehicle Number:</strong> ${driverDetails.vehicleNumber}</p>
-      <br/><p><strong>MakeRide Team</strong></p>`;
+    // Generate the modern driver details email template
+    const html = generateDriverDetailsTemplate({
+      route: bookingRequest.route,
+      date: bookingRequest.date,
+      time: bookingRequest.time
+    }, driverDetails);
 
     await transporter.sendMail({
-      from: `"MakeRide" <${process.env.EMAIL_USER}>`,
+      from: `"MakeRide Admin" <${process.env.EMAIL_USER}>`,
       to: bookingRequest.traveller.email,
       subject: "🚖 Your Driver Details - MakeRide",
       html
@@ -74,13 +70,15 @@ router.put('/api/booking-requests/:id/driver-details', async (req, res) => {
 router.post('/api/send-decline-email', async (req, res) => {
   try {
     const { email, route, reason } = req.body;
-    const html = `
-      <h2>📝 Booking Update</h2>
-      <p>We regret to inform you that we are unable to fulfill your booking request at this time.</p>
-      <p><strong>Route:</strong> ${route}</p>
-      <p><strong>Reason:</strong> ${reason || 'Service temporarily unavailable'}</p>
-      <hr/><p>Sorry for the inconvenience.</p><br/><p><strong>MakeRide Team</strong></p>`;
-    await transporter.sendMail({ from: `"MakeRide" <${process.env.EMAIL_USER}>`, to: email, subject: "📝 Booking Update - MakeRide", html });
+    // Generate the modern decline email template
+    const html = generateDeclineTemplate(route, reason);
+    
+    await transporter.sendMail({ 
+      from: `"MakeRide Admin" <${process.env.EMAIL_USER}>`, 
+      to: email, 
+      subject: "📝 Booking Update - MakeRide", 
+      html 
+    });
     res.json({ message: 'Decline email sent successfully' });
   } catch (err) { res.status(500).json({ error: 'Failed to send decline email' }); }
 });

@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const transporter = require('../services/email.service');
 const { OutstationEntry } = require('../model');
+const { generateBookingConfirmationTemplate } = require('../utils/emailTemplates');
 
 // CRUD listing with pagination
 router.get('/api/outstation-routes', async (req, res) => {
@@ -111,24 +112,32 @@ router.post('/send-route-email', async (req, res) => {
 router.post('/send-intercity-email', async (req, res) => {
   const { email, route, cab, traveller } = req.body;
   if (!email || !route || !cab) return res.status(400).json({ error: 'Missing required data' });
+  
   try {
-    const html = `
-      <h2>🚖 Intercity Booking Confirmation</h2>
-      <p><strong>Route:</strong> ${route}</p>
-      <p><strong>Cab:</strong> ${cab.type.toUpperCase()} - ₹${cab.price}</p>
-      <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-      <hr/>
-      <h3>🧍 Traveller Details</h3>
-      <p><strong>Name:</strong> ${traveller.name}</p>
-      <p><strong>Mobile:</strong> ${traveller.mobile}</p>
-      <p><strong>Pickup:</strong> ${traveller.pickup}</p>
-      <p><strong>Drop:</strong> ${traveller.drop}</p>
-      <p><strong>Remark:</strong> ${traveller.remark || '-'}</p>
-      <p><strong>GST:</strong> ${traveller.gst || '-'}</p>
-      <br/><p><strong>MakeRide Team</strong></p>`;
-    await transporter.sendMail({ from: `"MakeRide" <${process.env.EMAIL_USER}>`, to: email, subject: "🚖 Your Intercity Ride is Confirmed!", html });
-    res.json({ message: "Email sent" });
-  } catch (err) { res.status(500).json({ error: "Email failed to send" }); }
+    // Generate the modern email template
+    const html = generateBookingConfirmationTemplate({
+      serviceType: 'OUTSTATION',
+      route,
+      car: cab,
+      traveller: {
+        ...traveller,
+        email: email
+      },
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString()
+    });
+    
+    await transporter.sendMail({ 
+      from: `"MakeRide Admin" <${process.env.EMAIL_USER}>`, 
+      to: email, 
+      subject: "🚗 Intercity Booking Confirmation", 
+      html 
+    });
+    res.json({ message: "Intercity booking email sent successfully" });
+  } catch (err) { 
+    console.error('Email sending error:', err);
+    res.status(500).json({ error: "Email failed to send" }); 
+  }
 });
 
 module.exports = router;
