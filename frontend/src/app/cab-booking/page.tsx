@@ -82,7 +82,6 @@ const CabBookingContent = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState("0");
   const [acceptTerms, setAcceptTerms] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [isProcessingEmail, setIsProcessingEmail] = useState(false);
 
@@ -113,7 +112,7 @@ const CabBookingContent = () => {
       // Option B: hardcode a price (uncomment next line and comment the line above)
       // const amountRupees = 1;
 
-      if (!amountRupees || Number.isNaN(amountRupees)) {
+      if (amountRupees < 0 || Number.isNaN(amountRupees)) {
         alert("Invalid amount selected");
         return;
       }
@@ -339,7 +338,7 @@ const CabBookingContent = () => {
         console.log("Cash payment selected - booking request created");
       } else {
         // For advance payments, open payment gateway
-        setShowPaymentModal(true);
+        await onPayment();
       }
     } catch (error) {
       console.error("Error creating booking request or sending email:", error);
@@ -350,7 +349,7 @@ const CabBookingContent = () => {
         );
         console.log("Error occurred during booking request creation");
       } else {
-        setShowPaymentModal(true);
+        await onPayment();
       }
     } finally {
       setIsProcessingEmail(false);
@@ -651,7 +650,7 @@ const CabBookingContent = () => {
 
               {/* Payment Button */}
               <button
-                onClick={onPayment}
+                onClick={handlePayment}
                 disabled={!acceptTerms || isProcessingEmail}
                 className={`w-full font-bold py-4 rounded-xl text-lg transition-all duration-500 transform relative overflow-hidden group ${
                   !acceptTerms || isProcessingEmail
