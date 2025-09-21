@@ -10,6 +10,7 @@ import AirportForm from "./AirportForm";
 import AirportServices from "./AirportServices";
 import UserDashboard from "./UserDashboard";
 import RouteDashboard from "./RouteDashboard";
+import RouteForm from "./RouteForm";
 import BlogManagement from "./BlogManagement";
 import BlogForm from "./BlogForm";
 
@@ -24,6 +25,8 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
   const localFormRef = useRef<{ openModal: () => void }>(null);
   const airportServicesRef = useRef<{ fetchServices: () => void }>(null);
   const airportFormRef = useRef<{ openModal: () => void }>(null);
+  const routeDashboardRef = useRef<{ fetchRoutes: () => void }>(null);
+  const routeFormRef = useRef<{ openModal: (route?: any) => void }>(null);
   const blogManagementRef = useRef<{ fetchBlogs: () => void }>(null);
   const blogFormRef = useRef<{ openModal: (blog?: any) => void }>(null);
 
@@ -34,7 +37,7 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
     }
   };
 
-  const handleAddRoute = () => {
+  const handleAddOutstationRoute = () => {
     // Open the OutstationForm modal
     if (outstationFormRef.current) {
       outstationFormRef.current.openModal();
@@ -83,6 +86,27 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
     }
   };
 
+  const handleRouteSaved = () => {
+    // Refresh the routes list when a new route is saved
+    if (routeDashboardRef.current) {
+      routeDashboardRef.current.fetchRoutes();
+    }
+  };
+
+  const handleAddRoute = () => {
+    // Open the RouteForm modal for new route
+    if (routeFormRef.current) {
+      routeFormRef.current.openModal();
+    }
+  };
+
+  const handleEditRoute = (route: any) => {
+    // Open the RouteForm modal for editing
+    if (routeFormRef.current) {
+      routeFormRef.current.openModal(route);
+    }
+  };
+
   const handleEditBlog = (blog: any) => {
     // Open the BlogForm modal for editing
     if (blogFormRef.current) {
@@ -95,13 +119,22 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
       case "USERS":
         return <UserDashboard />;
       case "ROUTES":
-        return <RouteDashboard />;
+        return (
+          <div className="space-y-8">
+            <RouteDashboard
+              ref={routeDashboardRef}
+              onAddRoute={handleAddRoute}
+              onEditRoute={handleEditRoute}
+            />
+            <RouteForm ref={routeFormRef} onRouteSaved={handleRouteSaved} />
+          </div>
+        );
       case "OUTSTATION":
         return (
           <div className="space-y-8">
             <OutstationRoutes
               ref={outstationRoutesRef}
-              onAddRoute={handleAddRoute}
+              onAddRoute={handleAddOutstationRoute}
             />
             <OutstationForm
               ref={outstationFormRef}

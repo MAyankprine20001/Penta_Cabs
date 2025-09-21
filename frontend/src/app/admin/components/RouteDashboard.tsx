@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+  useCallback,
+} from "react";
 import { theme } from "@/styles/theme";
 
 interface Route {
@@ -8,260 +14,515 @@ interface Route {
   routeName: string;
   from: string;
   to: string;
-  type: "outstation (one way)" | "outstation (two way)" | "local" | "airport";
-  distance: string;
-  duration: string;
+  description: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string[];
+  status: "active" | "inactive";
+  tags: string[];
   lastBooking: string;
   createdAt: string;
 }
 
-// Mock data for demonstration
-const mockRoutes: Route[] = [
-  {
-    id: "1",
-    routeName: "Ahmedabad to Mumbai",
-    from: "Ahmedabad",
-    to: "Mumbai",
-    type: "outstation (one way)",
-    distance: "500 km",
-    duration: "8 hours",
-    lastBooking: "2024-01-18",
-    createdAt: "2023-12-01",
-  },
-  {
-    id: "2",
-    routeName: "Mumbai Airport Transfer",
-    from: "Mumbai Airport",
-    to: "Mumbai City",
-    type: "airport",
-    distance: "25 km",
-    duration: "1 hour",
-    lastBooking: "2024-01-19",
-    createdAt: "2023-11-15",
-  },
-  {
-    id: "3",
-    routeName: "Local City Tour",
-    from: "City Center",
-    to: "Various Locations",
-    type: "local",
-    distance: "50 km",
-    duration: "4 hours",
-    lastBooking: "2024-01-17",
-    createdAt: "2023-10-20",
-  },
-  {
-    id: "4",
-    routeName: "Delhi to Jaipur",
-    from: "Delhi",
-    to: "Jaipur",
-    type: "outstation (two way)",
-    distance: "280 km",
-    duration: "5 hours",
-    lastBooking: "2024-01-10",
-    createdAt: "2023-12-15",
-  },
-  {
-    id: "5",
-    routeName: "Mumbai to Pune",
-    from: "Mumbai",
-    to: "Pune",
-    type: "outstation (one way)",
-    distance: "150 km",
-    duration: "3 hours",
-    lastBooking: "2024-01-20",
-    createdAt: "2023-12-20",
-  },
-];
+interface PaginationInfo {
+  currentPage: number;
+  totalPages: number;
+  totalRoutes: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+  limit: number;
+  total: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
 
-export default function RouteDashboard() {
-  const [routes, setRoutes] = useState<Route[]>(mockRoutes);
+interface RouteDashboardProps {
+  onAddRoute?: () => void;
+  onEditRoute?: (route: Route) => void;
+}
+
+const RouteDashboard = forwardRef<
+  { fetchRoutes: () => void },
+  RouteDashboardProps
+>(({ onAddRoute, onEditRoute }, ref) => {
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    currentPage: 1,
+    totalPages: 1,
+    totalRoutes: 0,
+    hasNext: false,
+    hasPrev: false,
+    limit: 10,
+    total: 0,
+    hasNextPage: false,
+    hasPrevPage: false,
+  });
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<keyof Route>("routeName");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
+  const [message, setMessage] = useState("");
 
-  const filteredRoutes = routes.filter(route => {
-    const matchesSearch = route.routeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         route.from.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         route.to.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === "all" || route.type === typeFilter;
-    return matchesSearch && matchesType;
-  });
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
 
-  const sortedRoutes = [...filteredRoutes].sort((a, b) => {
-    const aValue = a[sortBy];
-    const bValue = b[sortBy];
-    
-    if (typeof aValue === "string" && typeof bValue === "string") {
-      return sortOrder === "asc" 
-        ? aValue.localeCompare(bValue)
-        : bValue.localeCompare(aValue);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    fetchRoutes();
+  }, [
+    pagination.currentPage,
+    pagination.limit,
+    debouncedSearchTerm,
+    statusFilter,
+  ]);
+
+  const fetchRoutes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: pagination.currentPage.toString(),
+        limit: pagination.limit.toString(),
+      });
+
+      if (debouncedSearchTerm.trim()) {
+        params.append("search", debouncedSearchTerm.trim());
+      }
+      if (statusFilter !== "all") {
+        params.append("status", statusFilter);
+      }
+
+      const response = await fetch(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+        }/routes?${params.toString()}`
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        setRoutes(data.data || []);
+        const backendPagination = data.pagination;
+        setPagination({
+          currentPage: backendPagination?.currentPage || 1,
+          totalPages: backendPagination?.totalPages || 1,
+          totalRoutes: backendPagination?.total || 0,
+          hasNext: backendPagination?.hasNextPage || false,
+          hasPrev: backendPagination?.hasPrevPage || false,
+          limit: backendPagination?.limit || 10,
+          total: backendPagination?.total || 0,
+          hasNextPage: backendPagination?.hasNextPage || false,
+          hasPrevPage: backendPagination?.hasPrevPage || false,
+        });
+      } else {
+        console.error("Failed to fetch routes:", data.message);
+        setRoutes([]);
+        setPagination({
+          currentPage: 1,
+          totalPages: 1,
+          totalRoutes: 0,
+          hasNext: false,
+          hasPrev: false,
+          limit: 10,
+          total: 0,
+          hasNextPage: false,
+          hasPrevPage: false,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching routes:", error);
+      setRoutes([]);
+      setPagination({
+        currentPage: 1,
+        totalPages: 1,
+        totalRoutes: 0,
+        hasNext: false,
+        hasPrev: false,
+        limit: 10,
+        total: 0,
+        hasNextPage: false,
+        hasPrevPage: false,
+      });
+    } finally {
+      setLoading(false);
     }
-    
-    if (typeof aValue === "number" && typeof bValue === "number") {
-      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
-    }
-    
-    return 0;
-  });
+  }, [
+    pagination.currentPage,
+    pagination.limit,
+    debouncedSearchTerm,
+    statusFilter,
+  ]);
 
-  const handleSort = (column: keyof Route) => {
-    if (sortBy === column) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortBy(column);
-      setSortOrder("asc");
+  // Expose fetchRoutes method to parent component
+  useImperativeHandle(ref, () => ({
+    fetchRoutes: () => {
+      fetchRoutes();
+    },
+  }));
+
+  // Reset to first page when search or filter changes
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, currentPage: 1 }));
+  }, [debouncedSearchTerm, statusFilter]);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "active":
+        return (
+          <span className="px-3 py-1 text-xs font-medium bg-green-600 text-white rounded-full">
+            Active
+          </span>
+        );
+      case "inactive":
+        return (
+          <span className="px-3 py-1 text-xs font-medium bg-red-600 text-white rounded-full">
+            Inactive
+          </span>
+        );
+      default:
+        return null;
     }
   };
 
-  const getTypeBadge = (type: string) => {
-    const typeConfig = {
-      "outstation (one way)": { color: "bg-blue-500", text: "Outstation (One Way)" },
-      "outstation (two way)": { color: "bg-green-500", text: "Outstation (Two Way)" },
-      local: { color: "bg-purple-500", text: "Local" },
-      airport: { color: "bg-indigo-500", text: "Airport" },
-    };
-    
-    const config = typeConfig[type as keyof typeof typeConfig];
-    return (
-      <span className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${config.color}`}>
-        {config.text}
-      </span>
-    );
+  const handleEdit = (route: Route) => {
+    if (onEditRoute) {
+      onEditRoute(route);
+    }
+  };
+
+  const handleDelete = (route: Route) => {
+    setSelectedRoute(route);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedRoute) return;
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/routes/${
+          selectedRoute.id
+        }`,
+        {
+          method: "DELETE",
+        }
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        setMessage("Route deleted successfully");
+        fetchRoutes(); // Refresh the list
+        setShowDeleteModal(false);
+        setSelectedRoute(null);
+      } else {
+        setMessage("Failed to delete route: " + data.message);
+      }
+    } catch (error) {
+      console.error("Error deleting route:", error);
+      setMessage("Error deleting route");
+    }
+  };
+
+  const handlePageChange = (page: number) => {
+    setPagination((prev) => ({ ...prev, currentPage: page }));
+  };
+
+  const handleAddRoute = () => {
+    if (onAddRoute) {
+      onAddRoute();
+    }
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 
-            className="text-2xl font-bold"
-            style={{
-              color: theme.colors.accent.gold,
-              fontFamily: theme.typography.fontFamily.sans.join(", "),
-            }}
-          >
-            Route Management
-          </h2>
-          <p className="text-gray-400 mt-1">
+          <h2 className="text-2xl font-bold text-gray-300">Route Management</h2>
+          <p className="text-gray-400">
             Manage routes and view booking statistics
           </p>
         </div>
-        
-        <div className="flex items-center space-x-4">
-          <div className="text-right">
-            <div className="text-2xl font-bold text-white">{routes.length}</div>
-            <div className="text-sm text-gray-400">Total Routes</div>
-          </div>
-        </div>
+        <button
+          onClick={handleAddRoute}
+          className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
+        >
+          <span>+</span>
+          Add New Route
+        </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col lg:flex-row gap-4">
+      {/* Search and Filter */}
+      <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
           <input
             type="text"
             placeholder="Search routes by name, from, or to..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+            className="w-full px-4 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent placeholder-gray-400"
           />
         </div>
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-        >
-          <option value="all">All Types</option>
-          <option value="outstation (one way)">Outstation (One Way)</option>
-          <option value="outstation (two way)">Outstation (Two Way)</option>
-          <option value="local">Local</option>
-          <option value="airport">Airport</option>
-        </select>
+        <div className="sm:w-48">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full px-4 py-2 bg-gray-800 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
       </div>
 
-      {/* Table */}
-      <div 
-        className="rounded-2xl border border-gray-700 overflow-hidden"
-        style={{
-          backgroundColor: theme.colors.background.card,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-        }}
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gradient-to-r from-gray-800 to-gray-900 border-b border-gray-700">
-                <th className="px-6 py-4 text-left">
-                  <button
-                    onClick={() => handleSort("routeName")}
-                    className="flex items-center space-x-2 text-white font-semibold hover:text-yellow-500 transition-colors"
-                  >
-                    <span>Route</span>
-                    {sortBy === "routeName" && (
-                      <span>{sortOrder === "asc" ? "↑" : "↓"}</span>
-                    )}
-                  </button>
-                </th>
-                <th className="px-6 py-4 text-left text-white font-semibold">Type</th>
-                <th className="px-6 py-4 text-left text-white font-semibold">Details</th>
-                <th className="px-6 py-4 text-left text-white font-semibold">Booking date</th>
-                <th className="px-6 py-4 text-left text-white font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedRoutes.map((route, index) => (
-                <tr 
-                  key={route.id}
-                  className={`border-b border-gray-700 hover:bg-gray-700 transition-colors ${
-                    index % 2 === 0 ? 'bg-gray-800' : 'bg-gray-900'
-                  }`}
-                >
-                  <td className="px-6 py-4">
-                    <div>
-                      <div className="font-semibold text-white">{route.routeName}</div>
-                      <div className="text-sm text-gray-400">ID: {route.id}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    {getTypeBadge(route.type)}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div>
-                      <div className="text-white">{route.from} → {route.to}</div>
-                      <div className="text-sm text-gray-400">
-                        {route.distance} • {route.duration}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-300">
-                    {route.lastBooking === "-" ? "-" : new Date(route.lastBooking).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex space-x-2">
-                      <button className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors">
-                        View
-                      </button>
-                      <button className="px-3 py-1 bg-yellow-600 text-white rounded-lg text-sm hover:bg-yellow-700 transition-colors">
-                        Edit
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Stats */}
+      <div className="bg-gray-800 p-4 rounded-lg border border-gray-600">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-gray-300">
+            {pagination.totalRoutes} Total Routes
+          </span>
+          <div className="flex gap-4 text-sm text-gray-400">
+            <span>
+              Page {pagination.currentPage} of {pagination.totalPages}
+            </span>
+            <span>
+              Active: {routes.filter((r) => r.status === "active").length}
+            </span>
+            <span>
+              Inactive: {routes.filter((r) => r.status === "inactive").length}
+            </span>
+          </div>
         </div>
-        
-        {sortedRoutes.length === 0 && (
+      </div>
+
+      {/* Routes Table */}
+      <div className="bg-gray-800 rounded-lg border border-gray-600 overflow-hidden">
+        {loading ? (
           <div className="p-8 text-center">
-            <div className="text-gray-400 text-lg">No routes found</div>
-            <div className="text-gray-500 text-sm mt-2">Try adjusting your search or filters</div>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
+            <p className="mt-2 text-gray-400">Loading routes...</p>
+          </div>
+        ) : routes.length === 0 ? (
+          <div className="p-8 text-center text-gray-400">
+            <p>No routes found.</p>
+            <button
+              onClick={handleAddRoute}
+              className="mt-2 text-yellow-400 hover:text-yellow-300 font-medium"
+            >
+              Create your first route
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-600">
+              <thead className="bg-gray-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Route
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Booking Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-gray-800 divide-y divide-gray-600">
+                {routes.map((route) => (
+                  <tr key={route.id} className="hover:bg-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-white">
+                          {route.routeName}
+                        </div>
+                        <div className="text-sm text-gray-400">
+                          {route.from} → {route.to}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          ID: {route.id}
+                        </div>
+                        {route.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {route.tags.slice(0, 3).map((tag, index) => (
+                              <span
+                                key={index}
+                                className="inline-block px-2 py-1 text-xs bg-gray-600 text-gray-300 rounded"
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                            {route.tags.length > 3 && (
+                              <span className="text-xs text-gray-500">
+                                +{route.tags.length - 3} more
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getStatusBadge(route.status)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                      {new Date(route.lastBooking).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(route)}
+                          className="text-blue-400 hover:text-blue-300 bg-blue-900 hover:bg-blue-800 px-3 py-1 rounded text-xs"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(route)}
+                          className="text-red-400 hover:text-red-300 bg-red-900 hover:bg-red-800 px-3 py-1 rounded text-xs"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {pagination.totalRoutes > 0 && (
+        <div className="flex items-center justify-between bg-gray-800 px-6 py-4 border border-gray-600 rounded-lg">
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-300">
+              Page {pagination.currentPage} of {pagination.totalPages}
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">Show</span>
+              <select
+                value={pagination.limit}
+                onChange={(e) => {
+                  const newLimit = parseInt(e.target.value);
+                  setPagination((prev) => ({
+                    ...prev,
+                    currentPage: 1,
+                    limit: newLimit,
+                  }));
+                }}
+                className="px-2 py-1 text-sm border border-gray-500 rounded bg-gray-700 text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handlePageChange(pagination.currentPage - 1)}
+              disabled={pagination.currentPage === 1}
+              className="w-8 h-8 flex items-center justify-center border border-gray-500 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-700 transition-colors"
+              title="Previous page"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+
+            <button
+              onClick={() => handlePageChange(pagination.currentPage + 1)}
+              disabled={pagination.currentPage === pagination.totalPages}
+              className="w-8 h-8 flex items-center justify-center border border-gray-500 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-700 transition-colors"
+              title="Next page"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedRoute && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center">
+          <div className="bg-gray-800 p-6 rounded-lg border border-gray-600 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              Confirm Delete
+            </h3>
+            <p className="text-gray-300 mb-6">
+              Are you sure you want to delete the route "
+              {selectedRoute.routeName}"? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setSelectedRoute(null);
+                }}
+                className="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Message */}
+      {message && (
+        <div className="fixed top-4 right-4 bg-gray-800 border border-gray-600 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+          {message}
+          <button
+            onClick={() => setMessage("")}
+            className="ml-2 text-gray-400 hover:text-white"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
-} 
+});
+
+RouteDashboard.displayName = "RouteDashboard";
+
+export default RouteDashboard;

@@ -27,12 +27,12 @@ const sidebarItems: SidebarItem[] = [
     icon: "👥",
     description: "Manage user accounts and view statistics",
   },
-  // {
-  //   id: "ROUTES",
-  //   label: "Route Dashboard",
-  //   icon: "🗺️",
-  //   description: "Manage routes and view booking data"
-  // },
+  {
+    id: "ROUTES",
+    label: "Route Management",
+    icon: "🗺️",
+    description: "Manage routes and view booking data",
+  },
   {
     id: "OUTSTATION",
     label: "Outstation Routes",
