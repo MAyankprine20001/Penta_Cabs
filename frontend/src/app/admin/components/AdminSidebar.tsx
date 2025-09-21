@@ -56,7 +56,14 @@ const sidebarItems: SidebarItem[] = [
     label: "Blog Management",
     icon: "📝",
     description: "Create and manage blog posts and articles",
+  }, 
+  {
+    id: "SEO of PAGE",
+    label: "SEO of Penta Cab",
+    icon: "📝",
+    description: "Manage SEO of Penta Cab",
   },
+
 ];
 
 export default function AdminSidebar({
@@ -218,11 +225,10 @@ export default function AdminSidebar({
                     onClose();
                   }
                 }}
-                className={`w-full text-left px-3 sm:px-4 py-3 sm:py-4 transition-all duration-300 rounded-xl mx-1 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-800 transform hover:scale-105 ${
-                  activeTab === item.id
+                className={`w-full text-left px-3 sm:px-4 py-3 sm:py-4 transition-all duration-300 rounded-xl mx-1 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-800 transform hover:scale-105 ${activeTab === item.id
                     ? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-black font-semibold shadow-lg"
                     : "text-gray-300 hover:bg-gray-700 hover:text-white hover:shadow-md"
-                }`}
+                  }`}
                 aria-current={activeTab === item.id ? "page" : undefined}
                 title={item.description}
                 aria-describedby={`${item.id}-description`}

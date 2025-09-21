@@ -536,7 +536,7 @@ export default function UserDashboard() {
                   type="tel"
                   value={driverDetails.whatsappNumber}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/[0-9+\-\s]/g, "");
+                    const value = e.target.value.replace(/[^0-9+\-\s]/g, "");
                     setDriverDetails((prev) => ({
                       ...prev,
                       whatsappNumber: value,
@@ -557,8 +557,8 @@ export default function UserDashboard() {
                   type="text"
                   value={driverDetails.vehicleNumber}
                   onChange={(e) => {
+                    // Allow both numbers and text (letters), plus spaces and dashes
                     const value = e.target.value
-                      .replace(/[^A-Z0-9\s\-]/g, "")
                       .toUpperCase();
                     setDriverDetails((prev) => ({
                       ...prev,

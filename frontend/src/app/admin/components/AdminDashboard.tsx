@@ -13,6 +13,8 @@ import RouteDashboard from "./RouteDashboard";
 import RouteForm from "./RouteForm";
 import BlogManagement from "./BlogManagement";
 import BlogForm from "./BlogForm";
+import SEOManagement from "./SEOManagement";
+import SEOForm from "./SEOForm";
 
 interface AdminDashboardProps {
   activeTab: string;
@@ -29,6 +31,8 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
   const routeFormRef = useRef<{ openModal: (route?: any) => void }>(null);
   const blogManagementRef = useRef<{ fetchBlogs: () => void }>(null);
   const blogFormRef = useRef<{ openModal: (blog?: any) => void }>(null);
+  const seoManagementRef = useRef<{ fetchSEO: () => void }>(null);
+  const seoFormRef = useRef<{ openModal: (seo?: any) => void }>(null);
 
   const handleRouteAdded = () => {
     // Refresh the routes list when a new route is added
@@ -114,6 +118,27 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
     }
   };
 
+  const handleSEOSaved = () => {
+    // Refresh the SEO list when a new SEO entry is saved
+    if (seoManagementRef.current) {
+      seoManagementRef.current.fetchSEO();
+    }
+  };
+
+  const handleAddSEO = () => {
+    // Open the SEOForm modal for new SEO entry
+    if (seoFormRef.current) {
+      seoFormRef.current.openModal();
+    }
+  };
+
+  const handleEditSEO = (seo: any) => {
+    // Open the SEOForm modal for editing
+    if (seoFormRef.current) {
+      seoFormRef.current.openModal(seo);
+    }
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case "USERS":
@@ -176,6 +201,17 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
             <BlogForm ref={blogFormRef} onBlogSaved={handleBlogSaved} />
           </div>
         );
+      case "SEO of PAGE":
+        return (
+          <div className="space-y-8">
+            <SEOManagement
+              ref={seoManagementRef}
+              onAddSEO={handleAddSEO}
+              onEditSEO={handleEditSEO}
+            />
+            <SEOForm ref={seoFormRef} onSEOSaved={handleSEOSaved} />
+          </div>
+        );
       default:
         return <UserDashboard />;
     }
@@ -195,6 +231,8 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
         return "Set up airport transfer services with pickup and drop pricing.";
       case "BLOG":
         return "Create and manage blog posts, articles, and content for your website.";
+      case "SEO of PAGE":
+        return "Manage SEO settings, meta tags, and page optimization for better search engine visibility.";
       default:
         return "";
     }
@@ -214,13 +252,15 @@ export default function AdminDashboard({ activeTab }: AdminDashboardProps) {
         return "✈️";
       case "BLOG":
         return "📝";
+      case "SEO of PAGE":
+        return "🔍";
       default:
         return "📊";
     }
   };
 
   // For dashboard views, return the component directly
-  if (activeTab === "USERS" || activeTab === "ROUTES") {
+  if (activeTab === "USERS" || activeTab === "ROUTES" || activeTab === "SEO of PAGE") {
     return renderContent();
   }
 
