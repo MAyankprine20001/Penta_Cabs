@@ -2,13 +2,16 @@
 
 import { useEffect } from 'react';
 import { useSEO } from '@/hooks/useSEO';
+import { getSEOPageName } from '@/utils/pageMapping';
 
 interface DynamicSEOProps {
   page?: string;
 }
 
 export default function DynamicSEO({ page }: DynamicSEOProps) {
-  const { seoData, loading } = useSEO(page);
+  // Get the current page pathname if no page prop is provided
+  const currentPage = page || (typeof window !== 'undefined' ? window.location.pathname : '/');
+  const { seoData, loading } = useSEO(currentPage);
 
   useEffect(() => {
     if (seoData && !loading) {

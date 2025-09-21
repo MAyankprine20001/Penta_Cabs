@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { seoService, SEOData } from '@/services/seoService';
+import { getSEOPageName } from '@/utils/pageMapping';
 
 export interface UseSEOReturn {
   seoData: SEOData | null;
@@ -20,17 +21,28 @@ export const useSEO = (page?: string): UseSEOReturn => {
 
       let response;
       if (page) {
-        response = await seoService.getSEODataByPage(page);
+        // Map the page parameter to the correct SEO page name
+        const seoPageName = getSEOPageName(page);
+        response = await seoService.getSEODataByPage(seoPageName);
       } else {
-        // If no page specified, get all SEO data and find the first one or use default
-        const allResponse = await seoService.getAllSEOData();
-        if (allResponse.success && Array.isArray(allResponse.data) && allResponse.data.length > 0) {
-          // Find the first active SEO data or use the first one
-          const activeSEO = allResponse.data.find(item => item.status === 'active') || allResponse.data[0];
-          response = { success: true, data: activeSEO };
+        // If no page specified, try to get current page from window.location
+        if (typeof window !== 'undefined') {
+          const currentPage = getSEOPageName(window.location.pathname);
+          response = await seoService.getSEODataByPage(currentPage);
         } else {
-          // Use default SEO data as fallback
-          response = { success: true, data: seoService.getDefaultSEOData() };
+          // Fallback to getting all SEO data and finding the home page
+          const allResponse = await seoService.getAllSEOData();
+          if (allResponse.success && Array.isArray(allResponse.data) && allResponse.data.length > 0) {
+            // Try to find home page first, then any active SEO data
+            const homeSEO = allResponse.data.find(item => 
+              item.page.toLowerCase() === 'home' && item.status === 'active'
+            );
+            const activeSEO = homeSEO || allResponse.data.find(item => item.status === 'active') || allResponse.data[0];
+            response = { success: true, data: activeSEO };
+          } else {
+            // Use default SEO data as fallback
+            response = { success: true, data: seoService.getDefaultSEOData() };
+          }
         }
       }
 

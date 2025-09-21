@@ -3,6 +3,7 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { theme } from "@/styles/theme";
 import { seoService, SEOData } from "@/services/seoService";
+import { getAvailableSEOPages, getPageNameFromRoute } from "@/utils/pageMapping";
 
 // Remove the duplicate interface as we're importing it from seoService
 
@@ -164,9 +165,18 @@ const SEOForm = forwardRef<any, SEOFormProps>(({ onSEOSaved }, ref) => {
                 value={formData.page}
                 onChange={handleInputChange}
                 required
+                list="page-suggestions"
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                placeholder="e.g., Home, About Us, Contact"
+                placeholder="e.g., home, about us, contact penta, blog, routes"
               />
+              <datalist id="page-suggestions">
+                {getAvailableSEOPages().map((pageName) => (
+                  <option key={pageName} value={pageName} />
+                ))}
+              </datalist>
+              <p className="text-xs text-gray-500 mt-1">
+                Available pages: {getAvailableSEOPages().join(', ')}
+              </p>
             </div>        
           </div>
 
