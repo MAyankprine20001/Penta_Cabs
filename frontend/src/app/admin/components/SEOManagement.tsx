@@ -2,16 +2,9 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { theme } from "@/styles/theme";
+import { seoService, SEOData } from "@/services/seoService";
 
-interface SEOData {
-  id: string;
-  page: string;
-  title: string;
-  description: string;
-  keywords: string;
-  metaTags: string;
- 
-}
+// Remove the duplicate interface as we're importing it from seoService
 
 interface SEOManagementProps {
   onAddSEO?: () => void;
@@ -34,66 +27,30 @@ const SEOManagement = forwardRef<any, SEOManagementProps>(
     const fetchSEOData = async () => {
       setLoading(true);
       try {
-        // Mock data - replace with actual API call
-        const mockData: SEOData[] = [
-          {
-            id: "1",
-            page: "Home",
-            title: "Penta Cab - Premium Taxi Services in India | Book Online",
-            description: "Book reliable taxi services with Penta Cab. Airport transfers, local rides, and outstation trips across India. 24/7 customer support and competitive pricing.",
-            keywords: "taxi booking, cab service, airport transfer, local rides, outstation trips, India taxi, online booking",
-            metaTags: "taxi booking, cab service, reliable transport, online booking, 24/7 support",
-            
-          },
-          {
-            id: "2",
-            page: "Routes",
-            title: "Popular Taxi Routes | Penta Cab Intercity & Outstation Services",
-            description: "Explore popular taxi routes with Penta Cab. Mumbai to Pune, Delhi to Agra, Bangalore to Mysore and more. Book your intercity journey with us.",
-            keywords: "taxi routes, intercity travel, outstation routes, Mumbai Pune, Delhi Agra, Bangalore Mysore, popular routes",
-            metaTags: "intercity travel, popular routes, outstation booking, city to city taxi",
-             
-          },
-          {
-            id: "3",
-            page: "Blog",
-            title: "Penta Cab Blog | Travel Tips, News & Updates",
-            description: "Read our latest blog posts about travel tips, taxi booking guides, city information, and Penta Cab news. Stay updated with travel insights.",
-            keywords: "travel blog, taxi tips, booking guide, travel news, city information, Penta Cab blog",
-            metaTags: "travel blog, taxi tips, booking guide, travel insights, city guides",
-            
-          },
-          {
-            id: "4",
-            page: "About Us",
-            title: "About Penta Cab - Your Trusted Travel Partner Since 2010",
-            description: "Learn about Penta Cab's journey, mission, and commitment to providing safe and comfortable taxi services. Meet our team and discover our values.",
-            keywords: "about penta cab, taxi company, travel partner, company history, our team, mission vision",
-            metaTags: "about us, company history, taxi service provider, our team, mission vision",
-            
-          },
-          {
-            id: "5",
-            page: "Privacy Policy",
-            title: "Privacy Policy | Penta Cab Data Protection & Security",
-            description: "Read Penta Cab's privacy policy to understand how we collect, use, and protect your personal information. Your privacy is our priority.",
-            keywords: "privacy policy, data protection, personal information, security, GDPR compliance, user privacy",
-            metaTags: "privacy policy, data protection, user privacy, security, GDPR",
-            
-          },
-          {
-            id: "6",
-            page: "Contact Us",
-            title: "Contact Penta Cab - Customer Support & Booking Help",
-            description: "Contact Penta Cab for bookings, support, or inquiries. We're here to help with your travel needs. Call, email, or visit our office.",
-            keywords: "contact penta cab, customer support, booking help, customer service, phone number, email support",
-            metaTags: "contact us, customer service, booking support, help center, customer care",
-             
-          },
-        ];
-        setSeoData(mockData);
+        const response = await seoService.getAllSEOData();
+        if (response.success && Array.isArray(response.data)) {
+          // Transform the data to match the expected format
+          const transformedData = response.data.map(item => ({
+            id: item._id || item.id || '',
+            _id: item._id || item.id || '',
+            page: item.page,
+            title: item.title,
+            description: item.description,
+            keywords: item.keywords,
+            metaTags: item.metaTags,
+            status: item.status || 'active',
+            lastUpdated: item.lastUpdated || new Date().toISOString(),
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt
+          }));
+          setSeoData(transformedData);
+        } else {
+          console.error("Error fetching SEO data:", response.message);
+          setSeoData([]);
+        }
       } catch (error) {
         console.error("Error fetching SEO data:", error);
+        setSeoData([]);
       } finally {
         setLoading(false);
       }
@@ -114,23 +71,38 @@ const SEOManagement = forwardRef<any, SEOManagementProps>(
       return matchesSearch && matchesStatus;
     });
 
-    const handleStatusToggle = (id: string) => {
-      setSeoData(prev => 
-        prev.map(item => 
-          item.id === id 
-            ? { ...item }
-            : item
-        )
-      );
+    const handleStatusToggle = async (id: string) => {
+      try {
+        const response = await seoService.toggleSEOStatus(id);
+        if (response.success) {
+          // Refresh the data after successful toggle
+          fetchSEOData();
+        } else {
+          alert("Error toggling SEO status: " + response.message);
+        }
+      } catch (error) {
+        console.error("Error toggling SEO status:", error);
+        alert("Error toggling SEO status. Please try again.");
+      }
     };
 
     const handleEdit = (seo: SEOData) => {
       onEditSEO?.(seo);
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
       if (window.confirm("Are you sure you want to delete this SEO entry?")) {
-        setSeoData(prev => prev.filter(item => item.id !== id));
+        try {
+          const response = await seoService.deleteSEOData(id);
+          if (response.success) {
+            setSeoData(prev => prev.filter(item => item.id !== id));
+          } else {
+            alert("Error deleting SEO entry: " + response.message);
+          }
+        } catch (error) {
+          console.error("Error deleting SEO entry:", error);
+          alert("Error deleting SEO entry. Please try again.");
+        }
       }
     };
 
@@ -144,6 +116,43 @@ const SEOManagement = forwardRef<any, SEOManagementProps>(
 
     return (
       <div className="space-y-6">
+        {/* Header with Add Button */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-2xl font-bold text-white">SEO Management</h2>
+            <p className="text-gray-400 mt-1">Manage SEO settings and meta tags for all pages</p>
+          </div>
+          <button
+            onClick={onAddSEO}
+            className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-black font-semibold rounded-xl hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center space-x-2"
+          >
+            <span>+</span>
+            <span>Add SEO Entry</span>
+          </button>
+        </div>
+
+        {/* Search and Filter Controls */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <input
+              type="text"
+              placeholder="Search SEO entries..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+            />
+          </div>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value as "all" | "active" | "inactive")}
+            className="px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+
         {/* Black Table */}
         <div className="bg-black rounded-2xl border border-gray-700 overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
@@ -161,6 +170,9 @@ const SEOManagement = forwardRef<any, SEOManagementProps>(
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-yellow-400 uppercase tracking-wider">
                     Keywords
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-yellow-400 uppercase tracking-wider">
+                    Status
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-yellow-400 uppercase tracking-wider">
                     Actions
@@ -188,16 +200,42 @@ const SEOManagement = forwardRef<any, SEOManagementProps>(
                         {item.keywords}
                       </div>
                     </td>
- 
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium cursor-pointer">
-                      <div className="flex space-x-2 cursor-pointer">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        item.status === 'active' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
                         <button
                           onClick={() => handleEdit(item)}
-                          className="text-yellow-400 hover:text-yellow-300 transition-colors duration-200 cursor-pointer"
+                          className="text-yellow-400 hover:bg-yellow-400 hover:text-black transition-colors duration-200 px-2 py-1 rounded border border-yellow-400 text-xs"
                           title="Edit SEO"
                         >
                           Edit
-                        </button>                        
+                        </button>
+                        <button
+                          onClick={() => handleStatusToggle(item.id)}
+                          className={`px-2 py-1 rounded text-xs transition-colors duration-200 ${
+                            item.status === 'active'
+                              ? 'text-orange-400 border border-orange-400 hover:bg-orange-400 hover:text-white'
+                              : 'text-green-400 border border-green-400 hover:bg-green-400 hover:text-white'
+                          }`}
+                          title={item.status === 'active' ? 'Deactivate' : 'Activate'}
+                        >
+                          {item.status === 'active' ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="text-red-400 hover:bg-red-400 hover:text-white transition-colors duration-200 px-2 py-1 rounded border border-red-400 text-xs"
+                          title="Delete SEO"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -209,12 +247,20 @@ const SEOManagement = forwardRef<any, SEOManagementProps>(
           {filteredData.length === 0 && (
             <div className="text-center py-12">
               <div className="text-gray-400 text-lg mb-2">No SEO entries found</div>
-              <div className="text-gray-500 text-sm">
+              <div className="text-gray-500 text-sm mb-4">
                 {searchTerm || filterStatus !== "all" 
                   ? "Try adjusting your search or filter criteria"
-                  : "Click 'Add SEO Entry' to create your first SEO entry"
+                  : "Get started by adding your first SEO entry"
                 }
               </div>
+              {!searchTerm && filterStatus === "all" && (
+                <button
+                  onClick={onAddSEO}
+                  className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-black font-semibold rounded-xl hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
+                >
+                  Add SEO Entry
+                </button>
+              )}
             </div>
           )}
         </div>

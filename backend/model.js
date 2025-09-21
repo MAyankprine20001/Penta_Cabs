@@ -82,6 +82,19 @@ const bookingRequestSchema = new mongoose.Schema({
 
 const BookingRequest = mongoose.model('BookingRequest', bookingRequestSchema);
 
+// SEO Management schema
+const seoDataSchema = new mongoose.Schema({
+    page: { type: String, required: true, unique: true },
+    title: { type: String, required: true },
+    description: { type: String, required: true },
+    keywords: { type: String, required: true },
+    metaTags: { type: String, required: true },
+    status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+    lastUpdated: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+const SEOData = mongoose.model('SEOData', seoDataSchema);
+
 // Add this to your exports
-module.exports = { AirportEntry, OutstationEntry, LocalRideEntry, BookingRequest };
+module.exports = { AirportEntry, OutstationEntry, LocalRideEntry, BookingRequest, SEOData };
 

@@ -2,17 +2,9 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { theme } from "@/styles/theme";
+import { seoService, SEOData } from "@/services/seoService";
 
-interface SEOData {
-  id: string;
-  page: string;
-  title: string;
-  description: string;
-  keywords: string;
-  metaTags: string;
-  status: "active" | "inactive";
-  lastUpdated: string;
-}
+// Remove the duplicate interface as we're importing it from seoService
 
 interface SEOFormProps {
   onSEOSaved?: () => void;
@@ -71,25 +63,55 @@ const SEOForm = forwardRef<any, SEOFormProps>(({ onSEOSaved }, ref) => {
     setLoading(true);
 
     try {
-      // Mock API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      let response;
       
-      console.log("SEO Data:", formData);
+      if (editingSEO) {
+        // Update existing SEO data
+        const updateData = {
+          page: formData.page,
+          title: formData.title,
+          description: formData.description,
+          keywords: formData.keywords,
+          metaTags: formData.metaTags,
+          status: formData.status,
+        };
+        
+        response = await seoService.updateSEOData(editingSEO._id || '', updateData);
+      } else {
+        // Create new SEO data
+        const createData = {
+          page: formData.page,
+          title: formData.title,
+          description: formData.description,
+          keywords: formData.keywords,
+          metaTags: formData.metaTags,
+          status: formData.status,
+        };
+        
+        response = await seoService.createSEOData(createData);
+      }
       
-      // Reset form
-      setFormData({
-        page: "",
-        title: "",
-        description: "",
-        keywords: "",
-        metaTags: "",
-        status: "active",
-      });
-      
-      setIsOpen(false);
-      onSEOSaved?.();
+      if (response.success) {
+        console.log("SEO Data saved successfully:", response.data);
+        
+        // Reset form
+        setFormData({
+          page: "",
+          title: "",
+          description: "",
+          keywords: "",
+          metaTags: "",
+          status: "active",
+        });
+        
+        setIsOpen(false);
+        onSEOSaved?.();
+      } else {
+        alert("Error saving SEO data: " + response.message);
+      }
     } catch (error) {
       console.error("Error saving SEO data:", error);
+      alert("Error saving SEO data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -203,6 +225,42 @@ const SEOForm = forwardRef<any, SEOFormProps>(({ onSEOSaved }, ref) => {
             <p className="text-xs text-gray-500 mt-1">
               Separate keywords with commas
             </p>
+          </div>
+
+          {/* Meta Tags */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Meta Tags *
+            </label>
+            <input
+              type="text"
+              name="metaTags"
+              value={formData.metaTags}
+              onChange={handleInputChange}
+              required
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              placeholder="e.g., taxi booking, cab service, reliable transport"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Additional meta tags for SEO
+            </p>
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Status *
+            </label>
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleInputChange}
+              required
+              className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
           </div>
 
           {/* Preview */}

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import ConditionalLayout from "@/components/ConditionalLayout";
+import DynamicSEO from "@/components/DynamicSEO";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -171,6 +172,7 @@ export default function RootLayout({
         className={`${inter.variable} ${poppins.variable} font-sans antialiased bg-penta-black text-penta-cream min-h-screen flex flex-col`}
         suppressHydrationWarning={true}
       >
+        <DynamicSEO />
         <ConditionalLayout>
           {children}
         </ConditionalLayout>

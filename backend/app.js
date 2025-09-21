@@ -11,6 +11,7 @@ const bookingRoutes = require("./routes/booking.routes");
 const paymentRoutes = require("./routes/payments.routes");
 const blogRoutes = require("./routes/blog.routes");
 const routesRoutes = require("./routes/routes.routes");
+const seoRoutes = require("./routes/seo.routes");
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.use(bookingRoutes);
 app.use(paymentRoutes);
 app.use(blogRoutes);
 app.use(routesRoutes);
+app.use(seoRoutes);
 
 
 module.exports = app;
