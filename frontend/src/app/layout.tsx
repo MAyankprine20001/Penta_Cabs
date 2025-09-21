@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import ConditionalLayout from "@/components/ConditionalLayout";
-import DynamicSEO from "@/components/DynamicSEO";
-import RouteChangeListener from "@/components/RouteChangeListener";
+import SEOManager from "@/components/SEOManager";
+import SEODebug from "@/components/SEODebug";
 import { SEOProvider } from "@/contexts/SEOContext";
 
 const inter = Inter({
@@ -175,11 +175,9 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <SEOProvider>
-          <RouteChangeListener />
-          <DynamicSEO />
-          <ConditionalLayout>
-            {children}
-          </ConditionalLayout>
+          <SEOManager />
+          <SEODebug />
+          <ConditionalLayout>{children}</ConditionalLayout>
         </SEOProvider>
       </body>
     </html>

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { seoService, SEOData } from '@/services/seoService';
-import { getSEOPageName } from '@/utils/pageMapping';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { seoService, SEOData } from "@/services/seoService";
+import { getSEOPageName } from "@/utils/pageMapping";
 
 interface SEOContextType {
   seoData: SEOData[];
@@ -28,18 +28,25 @@ export const SEOProvider: React.FC<SEOProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      
+
+      console.log("🔄 Fetching SEO data from API...");
       const response = await seoService.getAllSEOData();
-      
+
       if (response.success && Array.isArray(response.data)) {
+        console.log(
+          "✅ SEO data fetched successfully:",
+          response.data.length,
+          "items"
+        );
         setSeoData(response.data);
       } else {
+        console.log("❌ Failed to fetch SEO data:", response.message);
         setSeoData([]);
-        setError(response.message || 'Failed to fetch SEO data');
+        setError(response.message || "Failed to fetch SEO data");
       }
     } catch (err) {
-      console.error('Error fetching SEO data:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      console.error("❌ Error fetching SEO data:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
       setSeoData([]);
     } finally {
       setLoading(false);
@@ -47,28 +54,52 @@ export const SEOProvider: React.FC<SEOProviderProps> = ({ children }) => {
   };
 
   const getSEOByPage = (pageName: string): SEOData | null => {
-    if (!seoData || seoData.length === 0) return null;
-    
-    // First try exact match
-    let found = seoData.find(item => 
-      item.page.toLowerCase() === pageName.toLowerCase() && item.status === 'active'
+    if (!seoData || seoData.length === 0) {
+      console.log(
+        "🔍 SEO data not available, returning null for page:",
+        pageName
+      );
+      return null;
+    }
+
+    console.log(
+      "🔍 Searching for page:",
+      pageName,
+      "in SEO data:",
+      seoData.length,
+      "items"
     );
-    
+
+    // First try exact match
+    let found = seoData.find(
+      (item) =>
+        item.page.toLowerCase() === pageName.toLowerCase() &&
+        item.status === "active"
+    );
+
     // If not found, try case-insensitive match
     if (!found) {
-      found = seoData.find(item => 
-        item.page.toLowerCase() === pageName.toLowerCase()
+      found = seoData.find(
+        (item) => item.page.toLowerCase() === pageName.toLowerCase()
       );
     }
-    
+
     // If still not found, try partial match
     if (!found) {
-      found = seoData.find(item => 
-        item.page.toLowerCase().includes(pageName.toLowerCase()) ||
-        pageName.toLowerCase().includes(item.page.toLowerCase())
+      found = seoData.find(
+        (item) =>
+          item.page.toLowerCase().includes(pageName.toLowerCase()) ||
+          pageName.toLowerCase().includes(item.page.toLowerCase())
       );
     }
-    
+
+    console.log(
+      "📊 SEO result for",
+      pageName,
+      ":",
+      found ? "Found" : "Not found",
+      found?.title || "N/A"
+    );
     return found || null;
   };
 
@@ -91,16 +122,14 @@ export const SEOProvider: React.FC<SEOProviderProps> = ({ children }) => {
   };
 
   return (
-    <SEOContext.Provider value={contextValue}>
-      {children}
-    </SEOContext.Provider>
+    <SEOContext.Provider value={contextValue}>{children}</SEOContext.Provider>
   );
 };
 
 export const useSEOContext = (): SEOContextType => {
   const context = useContext(SEOContext);
   if (context === undefined) {
-    throw new Error('useSEOContext must be used within a SEOProvider');
+    throw new Error("useSEOContext must be used within a SEOProvider");
   }
   return context;
 };

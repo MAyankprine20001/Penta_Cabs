@@ -7,39 +7,39 @@ export interface PageMapping {
 // Map frontend routes to SEO page names (matching API data)
 export const PAGE_MAPPING: PageMapping = {
   // Home page
-  '/': 'home',
-  '/home': 'home',
+  '/': 'Home',
+  '/home': 'Home',
   
   // About page
-  '/about': 'about us',
-  '/about-us': 'about us',
+  '/about': 'About Us',
+  '/about-us': 'About Us',
   
   // Contact page
-  '/contact': 'contact penta',
-  '/contact-us': 'contact penta',
+  '/contact': 'Contact Us',
+  '/contact-us': 'Contact Us',
   
   // Blog pages
-  '/blog': 'blog',
+  '/blog': 'Blog',
   
   // Routes pages
-  '/routes': 'routes',
-  '/popular-routes': 'routes',
+  '/routes': 'Routes',
+  '/popular-routes': 'Routes',
   
   // Booking pages
-  '/cab-booking': 'cab booking',
-  '/cab-lists': 'cab lists',
-  '/cab-detail': 'cab detail',
-  '/intercity-booking': 'intercity booking',
-  '/outstation-booking': 'outstation booking',
-  '/confirm': 'confirm',
+  '/cab-booking': 'Cab Booking',
+  '/cab-lists': 'Cab Lists',
+  '/cab-detail': 'Cab Detail',
+  '/intercity-booking': 'Intercity Booking',
+  '/outstation-booking': 'Outstation Booking',
+  '/confirm': 'Confirm',
   
   // Admin pages
-  '/admin': 'admin',
+  '/admin': 'Admin',
   
   // Other pages
-  '/popular_route_info': 'popular route info',
-  '/test-api': 'test api',
-  '/test-booking': 'test booking',
+  '/popular_route_info': 'Popular Route Info',
+  '/test-api': 'Test API',
+  '/test-booking': 'Test Booking',
 };
 
 // Function to get SEO page name from current pathname
@@ -59,8 +59,8 @@ export const getSEOPageName = (pathname: string): string => {
     }
   }
   
-  // Default to home if no match found
-  return 'home';
+  // Default to Home if no match found
+  return 'Home';
 };
 
 // Function to get page name from route (for admin purposes)

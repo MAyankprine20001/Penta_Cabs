@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from 'react';
-import { useSEOOptimized } from '@/hooks/useSEOOptimized';
+import { useEffect } from "react";
+import { useSEOOptimized } from "@/hooks/useSEOOptimized";
 
 interface DynamicSEOProps {
   page?: string;
@@ -12,69 +12,90 @@ export default function DynamicSEO({ page }: DynamicSEOProps) {
 
   // Update SEO data when route changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       updatePageSEO(window.location.pathname);
     }
   }, []);
 
   // Apply SEO meta tags when data changes
   useEffect(() => {
-    if (seoData && !loading) {
+    if (seoData && !loading && typeof window !== "undefined") {
+      console.log("🔄 Updating meta tags for:", seoData.title);
+
       // Update document title
       if (seoData.title) {
         document.title = seoData.title;
       }
 
+      // Helper function to update or create meta tags
+      const updateMetaTag = (
+        selector: string,
+        content: string,
+        attribute: string = "content"
+      ) => {
+        let metaElement = document.querySelector(selector);
+        if (!metaElement) {
+          // Create new meta tag if it doesn't exist
+          metaElement = document.createElement("meta");
+          if (selector.includes("property=")) {
+            const property = selector.match(/property="([^"]+)"/)?.[1];
+            if (property) metaElement.setAttribute("property", property);
+          } else if (selector.includes("name=")) {
+            const name = selector.match(/name="([^"]+)"/)?.[1];
+            if (name) metaElement.setAttribute("name", name);
+          }
+          document.head.appendChild(metaElement);
+        }
+        metaElement.setAttribute(attribute, content);
+      };
+
       // Update meta description
-      const metaDescription = document.querySelector('meta[name="description"]');
-      if (metaDescription && seoData.description) {
-        metaDescription.setAttribute('content', seoData.description);
+      if (seoData.description) {
+        updateMetaTag('meta[name="description"]', seoData.description);
       }
 
       // Update meta keywords
-      const metaKeywords = document.querySelector('meta[name="keywords"]');
-      if (metaKeywords && seoData.keywords) {
-        metaKeywords.setAttribute('content', seoData.keywords);
+      if (seoData.keywords) {
+        updateMetaTag('meta[name="keywords"]', seoData.keywords);
       }
 
-      // Update Open Graph title
-      const ogTitle = document.querySelector('meta[property="og:title"]');
-      if (ogTitle && seoData.title) {
-        ogTitle.setAttribute('content', seoData.title);
+      // Update Open Graph tags
+      if (seoData.title) {
+        updateMetaTag('meta[property="og:title"]', seoData.title);
       }
 
-      // Update Open Graph description
-      const ogDescription = document.querySelector('meta[property="og:description"]');
-      if (ogDescription && seoData.description) {
-        ogDescription.setAttribute('content', seoData.description);
+      if (seoData.description) {
+        updateMetaTag('meta[property="og:description"]', seoData.description);
       }
 
-      // Update Twitter title
-      const twitterTitle = document.querySelector('meta[name="twitter:title"]');
-      if (twitterTitle && seoData.title) {
-        twitterTitle.setAttribute('content', seoData.title);
+      // Update Twitter tags
+      if (seoData.title) {
+        updateMetaTag('meta[name="twitter:title"]', seoData.title);
       }
 
-      // Update Twitter description
-      const twitterDescription = document.querySelector('meta[name="twitter:description"]');
-      if (twitterDescription && seoData.description) {
-        twitterDescription.setAttribute('content', seoData.description);
+      if (seoData.description) {
+        updateMetaTag('meta[name="twitter:description"]', seoData.description);
       }
 
-      // Add meta tags if they don't exist
-      if (seoData.metaTags) {
-        const existingMetaTags = document.querySelector('meta[name="meta-tags"]');
-        if (!existingMetaTags) {
-          const metaTags = document.createElement('meta');
-          metaTags.setAttribute('name', 'meta-tags');
-          metaTags.setAttribute('content', seoData.metaTags);
-          document.head.appendChild(metaTags);
-        } else {
-          existingMetaTags.setAttribute('content', seoData.metaTags);
+      // Update canonical URL
+      if (seoData.canonical) {
+        let canonicalLink = document.querySelector('link[rel="canonical"]');
+        if (!canonicalLink) {
+          canonicalLink = document.createElement("link");
+          canonicalLink.setAttribute("rel", "canonical");
+          document.head.appendChild(canonicalLink);
         }
+        canonicalLink.setAttribute("href", seoData.canonical);
       }
+
+      // Handle additional meta tags
+      if (seoData.metaTags) {
+        updateMetaTag('meta[name="meta-tags"]', seoData.metaTags);
+      }
+
+      console.log("✅ Meta tags updated successfully");
     }
-  }, [seoData, loading, updatePageSEO]);
+  }, [seoData, loading]);
 
   return null;
 }

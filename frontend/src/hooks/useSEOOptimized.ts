@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSEOContext } from '@/contexts/SEOContext';
 import { SEOData } from '@/services/seoService';
 import { getSEOPageName } from '@/utils/pageMapping';
@@ -17,39 +17,19 @@ export const useSEOOptimized = (initialPath?: string): UseSEOOptimizedReturn => 
   );
   const [seoData, setSeoData] = useState<SEOData | null>(null);
 
-  const updatePageSEO = (pathname: string) => {
+  const updatePageSEO = useCallback((pathname: string) => {
+    console.log('🔄 Updating SEO for path:', pathname);
     setCurrentPath(pathname);
     const pageSEO = getSEOByPath(pathname);
+    console.log('📊 SEO data found:', pageSEO ? 'Yes' : 'No', pageSEO?.title || 'N/A');
     setSeoData(pageSEO);
-  };
+  }, [getSEOByPath]);
 
   useEffect(() => {
     // Get SEO data for current path
     const pageSEO = getSEOByPath(currentPath);
     setSeoData(pageSEO);
   }, [currentPath, getSEOByPath]);
-
-  // Listen for route changes (for client-side navigation)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const handleRouteChange = () => {
-      const newPath = window.location.pathname;
-      if (newPath !== currentPath) {
-        updatePageSEO(newPath);
-      }
-    };
-
-    // Listen for popstate (back/forward button)
-    window.addEventListener('popstate', handleRouteChange);
-
-    // For Next.js app router, we can also listen to pathname changes
-    // This will be handled by the component that uses this hook
-
-    return () => {
-      window.removeEventListener('popstate', handleRouteChange);
-    };
-  }, [currentPath]);
 
   return {
     seoData,

@@ -1,46 +1,60 @@
 "use client";
 
-import { useSEOContext } from '@/contexts/SEOContext';
-import { getSEOPageName } from '@/utils/pageMapping';
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useSEOContext } from "@/contexts/SEOContext";
 
-interface SEODebugProps {
-  show?: boolean;
-}
+export default function SEODebug() {
+  const pathname = usePathname();
+  const { seoData, loading, getSEOByPath } = useSEOContext();
+  const [currentTitle, setCurrentTitle] = useState<string>("");
 
-export default function SEODebug({ show = false }: SEODebugProps) {
-  const { seoData, loading, error, getSEOByPath } = useSEOContext();
+  useEffect(() => {
+    setCurrentTitle(document.title);
+  }, [pathname]);
 
-  if (!show || typeof window === 'undefined') return null;
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTitle(document.title);
+    }, 1000);
 
-  const currentPath = window.location.pathname;
-  const currentSEO = getSEOByPath(currentPath);
+    return () => clearInterval(interval);
+  }, []);
+
+  const currentSEO = getSEOByPath(pathname);
+
+  if (process.env.NODE_ENV !== "development") {
+    return null;
+  }
 
   return (
-    <div className="fixed top-4 left-4 bg-black bg-opacity-90 text-white p-4 rounded-lg shadow-lg text-xs max-w-sm z-50">
-      <div className="space-y-2">
-        <div className="font-bold text-yellow-400">SEO Debug Info</div>
-        <div><span className="text-gray-400">Loading:</span> {loading ? 'Yes' : 'No'}</div>
-        {error && <div><span className="text-red-400">Error:</span> {error}</div>}
-        <div><span className="text-gray-400">Total SEO Entries:</span> {seoData.length}</div>
-        <div><span className="text-gray-400">Current Path:</span> {currentPath}</div>
-        <div><span className="text-gray-400">Mapped Page:</span> {getSEOPageName(currentPath)}</div>
-        {currentSEO ? (
-          <>
-            <div><span className="text-gray-400">Found SEO:</span> ✅</div>
-            <div><span className="text-gray-400">Page:</span> {currentSEO.page}</div>
-            <div><span className="text-gray-400">Title:</span> {currentSEO.title}</div>
-            <div><span className="text-gray-400">Status:</span> 
-              <span className={`ml-1 px-1 py-0.5 rounded text-xs ${
-                currentSEO.status === 'active' ? 'bg-green-600' : 'bg-red-600'
-              }`}>
-                {currentSEO.status}
-              </span>
-            </div>
-          </>
-        ) : (
-          <div><span className="text-red-400">No SEO Found</span></div>
-        )}
+    <div className="fixed bottom-4 right-4 bg-black/90 text-white p-4 rounded-lg text-xs max-w-sm z-50">
+      <div className="font-bold mb-2">🔍 SEO Debug</div>
+      <div>
+        <strong>Path:</strong> {pathname}
       </div>
+      <div>
+        <strong>Current Title:</strong> {currentTitle}
+      </div>
+      <div>
+        <strong>Loading:</strong> {loading ? "Yes" : "No"}
+      </div>
+      <div>
+        <strong>SEO Data Count:</strong> {seoData.length}
+      </div>
+      <div>
+        <strong>Current SEO:</strong> {currentSEO ? "Found" : "Not Found"}
+      </div>
+      {currentSEO && (
+        <>
+          <div>
+            <strong>Page:</strong> {currentSEO.page}
+          </div>
+          <div>
+            <strong>Title:</strong> {currentSEO.title}
+          </div>
+        </>
+      )}
     </div>
   );
 }

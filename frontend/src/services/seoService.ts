@@ -8,6 +8,7 @@ export interface SEOData {
   description: string;
   keywords: string;
   metaTags: string;
+  canonical?: string;
   status: 'active' | 'inactive';
   lastUpdated: string;
   createdAt?: string;
