@@ -1,18 +1,23 @@
 "use client";
 
 import { useEffect } from 'react';
-import { useSEO } from '@/hooks/useSEO';
-import { getSEOPageName } from '@/utils/pageMapping';
+import { useSEOOptimized } from '@/hooks/useSEOOptimized';
 
 interface DynamicSEOProps {
   page?: string;
 }
 
 export default function DynamicSEO({ page }: DynamicSEOProps) {
-  // Get the current page pathname if no page prop is provided
-  const currentPage = page || (typeof window !== 'undefined' ? window.location.pathname : '/');
-  const { seoData, loading } = useSEO(currentPage);
+  const { seoData, loading, updatePageSEO } = useSEOOptimized(page);
 
+  // Update SEO data when route changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      updatePageSEO(window.location.pathname);
+    }
+  }, []);
+
+  // Apply SEO meta tags when data changes
   useEffect(() => {
     if (seoData && !loading) {
       // Update document title
@@ -69,7 +74,7 @@ export default function DynamicSEO({ page }: DynamicSEOProps) {
         }
       }
     }
-  }, [seoData, loading]);
+  }, [seoData, loading, updatePageSEO]);
 
   return null;
 }

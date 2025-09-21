@@ -3,6 +3,7 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { theme } from "@/styles/theme";
 import { seoService, SEOData } from "@/services/seoService";
+import { useAllSEOData } from "@/hooks/useSEOOptimized";
 
 // Remove the duplicate interface as we're importing it from seoService
 
@@ -13,52 +14,38 @@ interface SEOManagementProps {
 
 const SEOManagement = forwardRef<any, SEOManagementProps>(
   ({ onAddSEO, onEditSEO }, ref) => {
+    const { seoData: contextSeoData, loading: contextLoading, refetch } = useAllSEOData();
     const [seoData, setSeoData] = useState<SEOData[]>([]);
-    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all");
 
     useImperativeHandle(ref, () => ({
       fetchSEO: () => {
-        fetchSEOData();
+        refetch();
       },
     }));
 
-    const fetchSEOData = async () => {
-      setLoading(true);
-      try {
-        const response = await seoService.getAllSEOData();
-        if (response.success && Array.isArray(response.data)) {
-          // Transform the data to match the expected format
-          const transformedData = response.data.map(item => ({
-            id: item._id || item.id || '',
-            _id: item._id || item.id || '',
-            page: item.page,
-            title: item.title,
-            description: item.description,
-            keywords: item.keywords,
-            metaTags: item.metaTags,
-            status: item.status || 'active',
-            lastUpdated: item.lastUpdated || new Date().toISOString(),
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt
-          }));
-          setSeoData(transformedData);
-        } else {
-          console.error("Error fetching SEO data:", response.message);
-          setSeoData([]);
-        }
-      } catch (error) {
-        console.error("Error fetching SEO data:", error);
-        setSeoData([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
+    // Transform context data to component format
     useEffect(() => {
-      fetchSEOData();
-    }, []);
+      if (contextSeoData && Array.isArray(contextSeoData)) {
+        const transformedData = contextSeoData.map(item => ({
+          id: item._id || item.id || '',
+          _id: item._id || item.id || '',
+          page: item.page,
+          title: item.title,
+          description: item.description,
+          keywords: item.keywords,
+          metaTags: item.metaTags,
+          status: item.status || 'active',
+          lastUpdated: item.lastUpdated || new Date().toISOString(),
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt
+        }));
+        setSeoData(transformedData);
+      } else {
+        setSeoData([]);
+      }
+    }, [contextSeoData]);
 
     const filteredData = seoData.filter((item) => {
       const matchesSearch = 
@@ -76,7 +63,7 @@ const SEOManagement = forwardRef<any, SEOManagementProps>(
         const response = await seoService.toggleSEOStatus(id);
         if (response.success) {
           // Refresh the data after successful toggle
-          fetchSEOData();
+          refetch();
         } else {
           alert("Error toggling SEO status: " + response.message);
         }
@@ -95,7 +82,8 @@ const SEOManagement = forwardRef<any, SEOManagementProps>(
         try {
           const response = await seoService.deleteSEOData(id);
           if (response.success) {
-            setSeoData(prev => prev.filter(item => item.id !== id));
+            // Refresh the data after successful deletion
+            refetch();
           } else {
             alert("Error deleting SEO entry: " + response.message);
           }
@@ -106,7 +94,7 @@ const SEOManagement = forwardRef<any, SEOManagementProps>(
       }
     };
 
-    if (loading) {
+    if (contextLoading) {
       return (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500"></div>

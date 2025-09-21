@@ -4,6 +4,7 @@ import React, { useState, useEffect, forwardRef, useImperativeHandle } from "rea
 import { theme } from "@/styles/theme";
 import { seoService, SEOData } from "@/services/seoService";
 import { getAvailableSEOPages, getPageNameFromRoute } from "@/utils/pageMapping";
+import { useAllSEOData } from "@/hooks/useSEOOptimized";
 
 // Remove the duplicate interface as we're importing it from seoService
 
@@ -12,6 +13,7 @@ interface SEOFormProps {
 }
 
 const SEOForm = forwardRef<any, SEOFormProps>(({ onSEOSaved }, ref) => {
+  const { refetch } = useAllSEOData();
   const [isOpen, setIsOpen] = useState(false);
   const [editingSEO, setEditingSEO] = useState<SEOData | null>(null);
   const [formData, setFormData] = useState({
@@ -106,6 +108,8 @@ const SEOForm = forwardRef<any, SEOFormProps>(({ onSEOSaved }, ref) => {
         });
         
         setIsOpen(false);
+        // Refresh the global SEO data
+        refetch();
         onSEOSaved?.();
       } else {
         alert("Error saving SEO data: " + response.message);
