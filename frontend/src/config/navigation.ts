@@ -66,20 +66,10 @@ export const navigationItems: NavItem[] = [
     ]
   },
   {
-    label: 'Popular',
-    href: '/popular',
-    description: 'Discover our most popular routes and cities',
-    hasDropdown: true,
+    label: 'Routes',
+    href: '/popular_route_info',
+    description: 'Discover our routes and destinations',
     icon: FaRoute,
-    dropdownItems: [
-      { 
-        label: 'Popular Routes', 
-        href: '/popular_route_info',
-        icon: MdLocationOn,
-        description: 'Most booked travel routes'
-      },
-      
-    ]
   },
   { 
     label: 'Blog', 

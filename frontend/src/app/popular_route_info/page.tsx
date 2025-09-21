@@ -1,74 +1,79 @@
 // src/app/popular_route_info/page.tsx
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { BsCarFront, BsClock } from "react-icons/bs";
+import { FaSearch, FaArrowRight, FaTag } from "react-icons/fa";
 import { theme } from "@/styles/theme";
 
-interface PopularRoute {
+interface Route {
   id: string;
+  routeName: string;
   from: string;
   to: string;
-  distance: string;
-  duration: string;
   description: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string[];
+  status: "active" | "inactive";
+  tags: string[];
+  lastBooking: string;
+  createdAt: string;
 }
 
-const popularRoutes: PopularRoute[] = [
-  {
-    id: "1",
-    from: "Ahmedabad",
-    to: "Mumbai",
-    distance: "530 km",
-    duration: "8-9 hours",
-    description:
-      "Premium intercity service with comfortable seating and professional drivers.",
-  },
-  {
-    id: "2",
-    from: "Ahmedabad",
-    to: "Pune",
-    distance: "650 km",
-    duration: "10-11 hours",
-    description: "Reliable long-distance travel with multiple vehicle options.",
-  },
-  {
-    id: "3",
-    from: "Ahmedabad",
-    to: "Surat",
-    distance: "280 km",
-    duration: "4-5 hours",
-    description: "Quick and efficient service for business and leisure travel.",
-  },
-  {
-    id: "4",
-    from: "Ahmedabad",
-    to: "Vadodara",
-    distance: "110 km",
-    duration: "2-3 hours",
-    description: "Frequent service with flexible departure times.",
-  },
-  {
-    id: "5",
-    from: "Ahmedabad",
-    to: "Rajkot",
-    distance: "200 km",
-    duration: "3-4 hours",
-    description:
-      "Comfortable journey with modern vehicles and experienced drivers.",
-  },
-  {
-    id: "6",
-    from: "Ahmedabad",
-    to: "Bhavnagar",
-    distance: "180 km",
-    duration: "3-4 hours",
-    description:
-      "Reliable service with competitive pricing and excellent customer support.",
-  },
-];
-
 const PopularRouteInfo: React.FC = () => {
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTag, setSelectedTag] = useState("");
+  const [allTags, setAllTags] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetchRoutes();
+  }, []);
+
+  const fetchRoutes = async () => {
+    try {
+      const response = await fetch(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+        }/routes?status=active&limit=50`
+      );
+      const data = await response.json();
+      if (data.success) {
+        setRoutes(data.data || []);
+        // Extract unique tags
+        const tags = [
+          ...new Set(data.data?.flatMap((route: Route) => route.tags) || []),
+        ];
+        setAllTags(tags);
+      }
+    } catch (error) {
+      console.error("Error fetching routes:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredRoutes = routes.filter((route) => {
+    const matchesSearch =
+      route.routeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      route.from.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      route.to.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      route.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTag = !selectedTag || route.tags.includes(selectedTag);
+    return matchesSearch && matchesTag;
+  });
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
   // Function to scroll to booking widget
   const scrollToBookingWidget = () => {
     setTimeout(() => {
@@ -109,167 +114,265 @@ const PopularRouteInfo: React.FC = () => {
     }
   };
 
-  return (
-    <div
-      className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black
-                    text-white"
-    >
-      {/* Header */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent z-10"></div>
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage: "url('/images/routes.jpg')",
-            filter: "brightness(0.3)",
-          }}
-        ></div>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500"></div>
+          <p className="mt-4 text-gray-300">Loading routes...</p>
+        </div>
+      </div>
+    );
+  }
 
-        <div className="relative z-20 px-4 sm:px-6 lg:px-8 py-20">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1
-              className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6"
-              style={{ color: theme.colors.text.primary }}
-            >
-              Popular Routes
+  return (
+    <div className="min-h-screen bg-black">
+      {/* Hero Section */}
+      <div className="bg-gradient-to-r from-gray-900 to-black py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
+              Penta CAB
+              <span className="block text-yellow-500">Routes</span>
             </h1>
-            <p
-              className="text-xl mb-8"
-              style={{ color: theme.colors.text.secondary }}
-            >
-              Discover our most frequently booked routes with competitive
-              pricing and reliable service
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+              Discover our routes and destinations. Find the perfect route for
+              your journey with our reliable cab service.
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Search and Filter Section */}
+      <div className="bg-gray-900 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col lg:flex-row gap-6 items-center justify-between">
+            {/* Search Bar */}
+            <div className="relative flex-1 max-w-md flex gap-2">
+              <div className="relative flex-1">
+                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search routes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") {
+                      // Search is already handled by the onChange
+                    }
+                  }}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                />
+              </div>
+              <button
+                onClick={() => {
+                  // Clear search
+                  setSearchTerm("");
+                  setSelectedTag("");
+                }}
+                className="px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-gray-300 hover:bg-gray-700 transition-colors"
+                title="Clear search"
+              >
+                Clear
+              </button>
+            </div>
+
+            {/* Tag Filter */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedTag("")}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  selectedTag === ""
+                    ? "bg-yellow-500 text-black"
+                    : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                }`}
+              >
+                All
+              </button>
+              {allTags.slice(0, 5).map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setSelectedTag(tag)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    selectedTag === tag
+                      ? "bg-yellow-500 text-black"
+                      : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                  }`}
+                >
+                  #{tag}
+                </button>
+              ))}
+              {allTags.length > 5 && (
+                <span className="px-3 py-2 text-gray-500 text-sm">
+                  +{allTags.length - 5} more
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Routes Grid */}
-      <div className="px-4 sm:px-6 lg:px-8 py-16">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {popularRoutes.map((route) => (
-              <div
-                key={route.id}
-                className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 
-                         backdrop-blur-sm border border-gray-700/50 rounded-xl p-6
-                         hover:transform hover:scale-105 transition-all duration-300
-                         hover:border-gray-600/50"
-              >
-                <div className="mb-4">
-                  <h3
-                    className="text-xl font-bold mb-2"
-                    style={{ color: theme.colors.text.primary }}
-                  >
-                    {route.from} → {route.to}
-                  </h3>
-                  <p
-                    className="text-sm leading-relaxed"
-                    style={{ color: theme.colors.text.muted }}
-                  >
-                    {route.description}
-                  </p>
-
-                  {/* Route Stats */}
-                  <div className="grid grid-cols-2 gap-3 py-3">
-                    <div className="text-center">
-                      <div className="flex items-center justify-center mb-1">
-                        <BsCarFront className="w-4 h-4 text-blue-400 mr-1" />
-                      </div>
-                      <span
-                        className="text-xs font-medium"
-                        style={{ color: theme.colors.text.secondary }}
-                      >
-                        Distance
-                      </span>
-                      <p
-                        className="text-sm font-semibold"
-                        style={{ color: theme.colors.text.primary }}
-                      >
-                        {route.distance}
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center mb-1">
-                        <BsClock className="w-4 h-4 text-green-400 mr-1" />
-                      </div>
-                      <span
-                        className="text-xs font-medium"
-                        style={{ color: theme.colors.text.secondary }}
-                      >
-                        Duration
-                      </span>
-                      <p
-                        className="text-sm font-semibold"
-                        style={{ color: theme.colors.text.primary }}
-                      >
-                        {route.duration}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+      <div className="py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {filteredRoutes.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="text-gray-400 text-xl mb-4">No routes found</div>
+              <p className="text-gray-500">
+                {searchTerm || selectedTag
+                  ? "Try adjusting your search or filter criteria"
+                  : "Check back soon for new routes!"}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="text-center mb-12">
+                <h2 className="text-3xl font-bold text-white mb-4">
+                  Available Routes
+                </h2>
+                <p className="text-gray-400">
+                  {filteredRoutes.length} route
+                  {filteredRoutes.length !== 1 ? "s" : ""} found
+                </p>
               </div>
-            ))}
-          </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {filteredRoutes.map((route) => (
+                  <article
+                    key={route.id}
+                    className="bg-gray-900 rounded-xl overflow-hidden hover:transform hover:scale-105 transition-all duration-300 group"
+                  >
+                    {/* Route Featured Image */}
+                    {(() => {
+                      // Extract first image from route description
+                      const imgMatch = route.description.match(
+                        /<img[^>]+src="([^"]+)"[^>]*>/i
+                      );
+                      const imageUrl = imgMatch ? imgMatch[1] : null;
+
+                      return imageUrl ? (
+                        <div className="h-48 overflow-hidden">
+                          <img
+                            src={imageUrl}
+                            alt={route.routeName}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            onError={(e) => {
+                              // Fallback to placeholder if image fails to load
+                              e.currentTarget.style.display = "none";
+                              e.currentTarget.nextElementSibling.style.display =
+                                "flex";
+                              e.currentTarget.nextElementSibling.classList.add(
+                                "flex"
+                              );
+                              e.currentTarget.nextElementSibling.classList.remove(
+                                "hidden"
+                              );
+                            }}
+                          />
+                          <div className="h-48 bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 items-center justify-center hidden">
+                            <div className="text-center text-gray-400">
+                              <div className="w-16 h-16 mx-auto mb-2 bg-gray-700 rounded-lg flex items-center justify-center">
+                                <span className="text-2xl">🚗</span>
+                              </div>
+                              <p className="text-sm">Route</p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="h-48 bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 flex items-center justify-center">
+                          <div className="text-center text-gray-400">
+                            <div className="w-16 h-16 mx-auto mb-2 bg-gray-700 rounded-lg flex items-center justify-center">
+                              <span className="text-2xl">🚗</span>
+                            </div>
+                            <p className="text-sm">Route</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    <div className="p-6">
+                      {/* Tags */}
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {route.tags.slice(0, 2).map((tag, index) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 bg-yellow-500/20 text-yellow-400 text-xs font-medium rounded-full"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                        {route.tags.length > 2 && (
+                          <span className="px-3 py-1 bg-gray-700 text-gray-400 text-xs font-medium rounded-full">
+                            +{route.tags.length - 2}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Title */}
+                      <h3 className="text-xl font-bold text-white mb-3 group-hover:text-yellow-400 transition-colors line-clamp-2">
+                        {route.routeName}
+                      </h3>
+
+                      {/* Route Info */}
+                      <div className="flex items-center gap-2 mb-3 text-gray-400">
+                        <BsCarFront className="w-4 h-4" />
+                        <span className="text-sm">
+                          {route.from} → {route.to}
+                        </span>
+                      </div>
+
+                      {/* Excerpt */}
+                      <p className="text-gray-400 text-sm mb-4 line-clamp-3">
+                        {route.description
+                          .replace(/<[^>]*>/g, "")
+                          .substring(0, 120)}
+                        ...
+                      </p>
+
+                      {/* Meta Info */}
+                      <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                        <div className="flex items-center gap-1">
+                          <BsClock className="w-3 h-3" />
+                          <span>
+                            Last booking: {formatDate(route.lastBooking)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Action Button */}
+                      <Link
+                        href={`/routes/${route.id}`}
+                        className="w-full inline-flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-black font-medium py-2 px-4 rounded-lg transition-colors group"
+                      >
+                        View Details
+                        <FaArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                      </Link>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Call to Action */}
-      <div className="px-4 sm:px-6 lg:px-8 py-16">
-        <div className="max-w-4xl mx-auto text-center">
-          <div
-            className="bg-gradient-to-r from-gray-800/50 to-gray-900/50 backdrop-blur-sm 
-                     border border-gray-700/50 rounded-2xl p-8"
+      {/* CTA Section */}
+      <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 py-16">
+        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl md:text-4xl font-bold text-black mb-4">
+            Ready for Your Next Journey?
+          </h2>
+          <p className="text-black/80 text-lg mb-8">
+            Book your ride with Penta CAB and experience comfortable, reliable
+            transportation on any of our routes.
+          </p>
+          <button
+            onClick={handleBookNowClick}
+            className="inline-flex items-center gap-2 bg-black text-white px-8 py-4 rounded-lg font-medium hover:bg-gray-800 transition-colors"
           >
-            <h2
-              className="text-2xl sm:text-3xl font-bold mb-4"
-              style={{ color: theme.colors.text.primary }}
-            >
-              Ready to Book Your Journey?
-            </h2>
-            <p
-              className="text-lg mb-6"
-              style={{ color: theme.colors.text.muted }}
-            >
-              Contact us for the best rates and personalized service on any of
-              these popular routes.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button
-                onClick={handleCallClick}
-                className="px-8 py-3 rounded-xl font-semibold transition-all duration-300 
-                         transform hover:scale-105 hover:shadow-lg cursor-pointer"
-                style={{
-                  backgroundColor: theme.colors.accent.gold,
-                  color: theme.colors.primary.black,
-                }}
-              >
-                Call Now: +91 760 083 9900
-              </button>
-              <button
-                onClick={handleWhatsAppClick}
-                className="px-8 py-3 rounded-xl font-semibold transition-all duration-300 
-                         transform hover:scale-105 border-2 cursor-pointer"
-                style={{
-                  borderColor: theme.colors.accent.gold,
-                  color: theme.colors.accent.gold,
-                }}
-              >
-                WhatsApp Us
-              </button>
-              <button
-                onClick={handleBookNowClick}
-                className="px-8 py-3 rounded-xl font-semibold transition-all duration-300 
-                         transform hover:scale-105 border-2 cursor-pointer"
-                style={{
-                  borderColor: theme.colors.accent.gold,
-                  color: theme.colors.accent.gold,
-                }}
-              >
-                Book Now
-              </button>
-            </div>
-          </div>
+            Book Now
+            <FaArrowRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
